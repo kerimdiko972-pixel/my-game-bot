@@ -1148,6 +1148,8 @@ time.sleep(3)
 print("Бот запущен!")
 
 threading.Thread(target=garden_checker, daemon=True).start()
-threading.Thread(target=run_bot, daemon=True).start()
+bot_thread = threading.Thread(target=run_bot, daemon=True)
+bot_thread.start()
+print(f"Поток бота создан: {bot_thread.is_alive()}")
 
 run_flask()
