@@ -32,6 +32,62 @@ def get_rank(exp):
             return rank
     return "⚪Новичок⚪"
 
+RANK_REWARDS = {
+    "🟢Опытный🟢":      {"money": 500,   "seeds": 3,  "bait": 1,  "eggs": 0},
+    "🔵Профи🔵":        {"money": 600,   "seeds": 5,  "bait": 3,  "eggs": 0},
+    "🟣Мастер🟣":       {"money": 1000,  "seeds": 8,  "bait": 5,  "eggs": 1},
+    "🔴Грандмастер🔴":  {"money": 3500,  "seeds": 10, "bait": 7,  "eggs": 3},
+    "💠Легенда💠":      {"money": 7000,  "seeds": 15, "bait": 9,  "eggs": 5},
+    "🔱Император🔱":    {"money": 15000, "seeds": 20, "bait": 10, "eggs": 8},
+}
+
+RANK_ORDER = [
+    (0,      "⚪Новичок⚪"),
+    (100,    "🟢Опытный🟢"),
+    (500,    "🔵Профи🔵"),
+    (2000,   "🟣Мастер🟣"),
+    (7000,   "🔴Грандмастер🔴"),
+    (20000,  "💠Легенда💠"),
+    (100000, "🔱Император🔱"),
+]
+
+# Рыбалка
+FISH_CATCHES = [
+    ("🐟",  540),
+    ("🐠",  200),
+    ("🦀",  80),
+    ("🦞",  70),
+    ("🦑",  60),
+    ("🦈",  30),
+    ("🐉",  17),
+    ("🧳",  3),
+]
+FISH_NAMES = {
+    "🐟": "Рыба",
+    "🐠": "Тропическая рыба",
+    "🦀": "Краб",
+    "🦞": "Лобстер",
+    "🦑": "Кальмар",
+    "🦈": "Акула",
+    "🐉": "Драгон-Фиш",
+    "🧳": "Сокровище",
+}
+FISH_COLUMNS = {
+    "🐟": "fish",
+    "🐠": "tropical_fish",
+    "🦀": "crab",
+    "🦞": "lobster",
+    "🦑": "squid",
+    "🦈": "shark",
+    "🐉": "dragonfish",
+    "🧳": "treasure",
+}
+
+def random_fish():
+    items = [f for f, _ in FISH_CATCHES]
+    weights = [w for _, w in FISH_CATCHES]
+    return random.choices(items, weights=weights, k=1)[0]
+
 # ===== ОВОЩИ =====
 VEGETABLES = [
     ("🥔", 50), ("🥕", 25), ("🍅", 15), ("🍆", 8), ("🎃", 2),
@@ -114,17 +170,19 @@ def init_db():
             pumpkin    INTEGER DEFAULT 0
         )
     ''')
-    for col in ['potato','carrot','tomato','eggplant','pumpkin']:
+    for col in ['potato','carrot','tomato','eggplant','pumpkin',
+                'fish','tropical_fish','crab','lobster','squid',
+                'shark','dragonfish','treasure','eggs','rank_index']:
         try:
             c.execute(f'ALTER TABLE users ADD COLUMN {col} INTEGER DEFAULT 0')
         except: pass
+
     c.execute('''
-        CREATE TABLE IF NOT EXISTS garden (
+        CREATE TABLE IF NOT EXISTS fishing (
             user_id    INTEGER,
             slot       INTEGER,
             status     TEXT DEFAULT 'empty',
-            planted_at TEXT DEFAULT NULL,
-            vegetable  TEXT DEFAULT NULL,
+            started_at TEXT DEFAULT NULL,
             chat_id    INTEGER DEFAULT NULL,
             message_id INTEGER DEFAULT NULL,
             PRIMARY KEY (user_id, slot)
@@ -165,6 +223,8 @@ def register_user(user_id, username):
     c.execute('INSERT OR IGNORE INTO users (user_id, username) VALUES (?,?)', (user_id, username))
     for slot in range(1, 7):
         c.execute('INSERT OR IGNORE INTO garden (user_id, slot) VALUES (?,?)', (user_id, slot))
+    for slot in range(1, 5):
+        c.execute('INSERT OR IGNORE INTO fishing (user_id, slot) VALUES (?,?)', (user_id, slot))
     conn.commit()
     conn.close()
 
@@ -178,12 +238,14 @@ def update_daily(user_id, money, exp, seeds, bait, timestamp):
     conn.commit()
     conn.close()
 
-def add_exp(user_id, amount):
+def add_exp(user_id, amount, chat_id=None):
     conn = sqlite3.connect('game.db')
     c = conn.cursor()
     c.execute('UPDATE users SET exp=exp+? WHERE user_id=?', (amount, user_id))
     conn.commit()
     conn.close()
+    if chat_id:
+        check_rank_up(user_id, chat_id)
 
 def spend_money(user_id, amount):
     conn = sqlite3.connect('game.db')
@@ -205,6 +267,133 @@ def add_bait(user_id, amount):
     c.execute('UPDATE users SET bait=bait+? WHERE user_id=?', (amount, user_id))
     conn.commit()
     conn.close()
+
+def add_eggs(user_id, amount):
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('UPDATE users SET eggs=eggs+? WHERE user_id=?', (amount, user_id))
+    conn.commit()
+    conn.close()
+
+def add_fish_item(user_id, fish_emoji):
+    col = FISH_COLUMNS.get(fish_emoji)
+    if not col: return
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute(f'UPDATE users SET {col}={col}+1 WHERE user_id=?', (user_id,))
+    conn.commit()
+    conn.close()
+
+def check_rank_up(user_id, chat_id):
+    user = get_user(user_id)
+    if not user: return
+    current_exp   = user[3]
+    stored_index  = user[14] if len(user) > 14 else 0  # rank_index колонка
+
+    new_index = 0
+    for i, (min_exp, _) in enumerate(RANK_ORDER):
+        if current_exp >= min_exp:
+            new_index = i
+
+    if new_index <= stored_index:
+        return
+
+    # Новый ранг!
+    _, rank_name = RANK_ORDER[new_index]
+    rewards = RANK_REWARDS.get(rank_name, {})
+    money = rewards.get("money", 0)
+    seeds = rewards.get("seeds", 0)
+    bait  = rewards.get("bait", 0)
+    eggs  = rewards.get("eggs", 0)
+
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('''UPDATE users SET rank_index=?, money=money+?, seeds=seeds+?, bait=bait+?, eggs=eggs+?
+                 WHERE user_id=?''', (new_index, money, seeds, bait, eggs, user_id))
+    conn.commit()
+    conn.close()
+
+    reward_lines = [f"💵 +{money}"]
+    if seeds: reward_lines.append(f"🌱 +{seeds} Семян")
+    if bait:  reward_lines.append(f"🪱 +{bait} Наживок")
+    if eggs:  reward_lines.append(f"🥚 +{eggs} Яиц")
+
+    bot.send_message(
+        chat_id,
+        f"🎉 *Новый ранг!*\n\n"
+        f"🏅 Ты достиг ранга:\n*{rank_name}*\n\n"
+        f"*Награда:*\n" + "\n".join(reward_lines),
+        parse_mode='Markdown'
+    )
+
+# Рыбалка - вспомогательные функции
+def get_fishing(user_id):
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('SELECT slot, status, started_at FROM fishing WHERE user_id=? ORDER BY slot', (user_id,))
+    slots = c.fetchall()
+    conn.close()
+    return slots
+
+def start_fishing(user_id, slot, chat_id, message_id):
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    now = datetime.now().isoformat()
+    c.execute('''UPDATE fishing SET status='fishing', started_at=?, chat_id=?, message_id=?
+                 WHERE user_id=? AND slot=?''', (now, chat_id, message_id, user_id, slot))
+    c.execute('UPDATE users SET bait=bait-3 WHERE user_id=?', (user_id,))
+    conn.commit()
+    conn.close()
+
+def reset_fishing_slot(user_id, slot):
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('''UPDATE fishing SET status='empty', started_at=NULL, chat_id=NULL, message_id=NULL
+                 WHERE user_id=? AND slot=?''', (user_id, slot))
+    conn.commit()
+    conn.close()
+
+def get_ready_fishing():
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    threshold = (datetime.now() - timedelta(hours=1)).isoformat()
+    c.execute('''SELECT user_id, slot, chat_id, message_id FROM fishing
+                 WHERE status='fishing' AND started_at <= ?''', (threshold,))
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+def fishing_text(user_id):
+    user = get_user(user_id)
+    money = user[2] if user else 0
+    bait  = user[5] if user else 0
+    return (f"🌊 РЫБАЛКА 🎣\n"
+            f"💵 Денег: {money}\n"
+            f"🪱 Наживок: {bait}\n"
+            f"- - - - - - - - - - - -")
+
+def fishing_keyboard(user_id):
+    slots = get_fishing(user_id)
+    markup = InlineKeyboardMarkup(row_width=2)
+    buttons = []
+    for slot, status, started_at in slots:
+        if status == 'empty':
+            btn = InlineKeyboardButton("Установить 🪱×3", callback_data=f"fish_start_{slot}")
+        elif status == 'fishing':
+            started = datetime.fromisoformat(started_at)
+            remaining = (started + timedelta(hours=1)) - datetime.now()
+            if remaining.total_seconds() <= 0:
+                btn = InlineKeyboardButton("✅ Забрать улов", callback_data=f"fish_collect_{slot}")
+            else:
+                mins = int(remaining.total_seconds() // 60)
+                btn = InlineKeyboardButton(f"⏳ {mins} мин.", callback_data=f"fish_wait_{slot}")
+        elif status == 'ready':
+            btn = InlineKeyboardButton("✅ Забрать улов", callback_data=f"fish_collect_{slot}")
+        else:
+            btn = InlineKeyboardButton("Установить 🪱×3", callback_data=f"fish_start_{slot}")
+        buttons.append(btn)
+    markup.add(*buttons)
+    return markup
 
 def add_pet(user_id, pet, rarity):
     conn = sqlite3.connect('game.db')
@@ -335,20 +524,29 @@ def shop_keyboard():
 def garden_checker():
     while True:
         try:
+            # Огород
             ready = get_ready_to_harvest()
             for user_id, slot, chat_id, message_id in ready:
                 veg = random_vegetable()
                 mark_slot_ready(user_id, slot, veg)
                 if chat_id and message_id:
                     try:
-                        bot.edit_message_text(
-                            garden_text(user_id),
-                            chat_id=chat_id,
-                            message_id=message_id,
-                            reply_markup=garden_keyboard(user_id)
-                        )
-                    except Exception as e:
-                        print(f"Garden edit error: {e}")
+                        bot.edit_message_text(garden_text(user_id), chat_id=chat_id,
+                            message_id=message_id, reply_markup=garden_keyboard(user_id))
+                    except: pass
+            # Рыбалка
+            ready_fish = get_ready_fishing()
+            for user_id, slot, chat_id, message_id in ready_fish:
+                conn = sqlite3.connect('game.db')
+                c = conn.cursor()
+                c.execute("UPDATE fishing SET status='ready' WHERE user_id=? AND slot=?", (user_id, slot))
+                conn.commit()
+                conn.close()
+                if chat_id and message_id:
+                    try:
+                        bot.edit_message_text(fishing_text(user_id), chat_id=chat_id,
+                            message_id=message_id, reply_markup=fishing_keyboard(user_id))
+                    except: pass
         except Exception as e:
             print(f"Checker error: {e}")
         time.sleep(30)
@@ -457,27 +655,87 @@ def cmd_garden(message):
     conn.close()
 
 @bot.message_handler(commands=['bag'])
+@bot.message_handler(commands=['bag'])
 def cmd_bag(message):
     user_id = message.from_user.id
     username = message.from_user.username or message.from_user.first_name
     register_user(user_id, username)
-    user     = get_user(user_id)
-    money    = user[2]
-    seeds    = user[4]
-    bait     = user[5]
-    potato   = user[7]
-    carrot   = user[8]
-    tomato   = user[9]
-    eggplant = user[10]
-    pumpkin  = user[11]
-    text = f"В мешке у игрока *{username}*:\n\n"
-    text += f"💵 Денег: {money}\n🌱 Семян: {seeds}\n🪱 Наживок: {bait}\n- - - - - - - - -\n"
-    if potato   > 0: text += f"🥔 × {potato}\n"
-    if carrot   > 0: text += f"🥕 × {carrot}\n"
-    if tomato   > 0: text += f"🍅 × {tomato}\n"
-    if eggplant > 0: text += f"🍆 × {eggplant}\n"
-    if pumpkin  > 0: text += f"🎃 × {pumpkin}\n"
-    bot.send_message(message.chat.id, text, parse_mode='Markdown')
+    user = get_user(user_id)
+
+    money      = user[2]
+    seeds      = user[4]
+    bait       = user[5]
+    potato     = user[7]
+    carrot     = user[8]
+    tomato     = user[9]
+    eggplant   = user[10]
+    pumpkin    = user[11]
+    fish       = user[12] if len(user) > 12 else 0
+    t_fish     = user[13] if len(user) > 13 else 0
+    crab       = user[14] if len(user) > 14 else 0
+    lobster    = user[15] if len(user) > 15 else 0
+    squid      = user[16] if len(user) > 16 else 0
+    shark      = user[17] if len(user) > 17 else 0
+    dragonfish = user[18] if len(user) > 18 else 0
+    treasure   = user[19] if len(user) > 19 else 0
+    eggs       = user[20] if len(user) > 20 else 0
+    # rank_index = user[21]
+
+    sep = "- - - - - - - - - -"
+    text = f"В мешке у игрока *{username}*:\n{sep}\n"
+    text += f"💵 Денег: {money}\n🌱 Семян: {seeds}\n🪱 Наживок: {bait}\n"
+
+    vegs = []
+    if potato:   vegs.append(f"🥔 × {potato}")
+    if carrot:   vegs.append(f"🥕 × {carrot}")
+    if tomato:   vegs.append(f"🍅 × {tomato}")
+    if eggplant: vegs.append(f"🍆 × {eggplant}")
+    if pumpkin:  vegs.append(f"🎃 × {pumpkin}")
+    if vegs:
+        text += sep + "\n" + "\n".join(vegs) + "\n"
+
+    fishes = []
+    if fish:       fishes.append(f"🐟 × {fish}")
+    if t_fish:     fishes.append(f"🐠 × {t_fish}")
+    if crab:       fishes.append(f"🦀 × {crab}")
+    if lobster:    fishes.append(f"🦞 × {lobster}")
+    if squid:      fishes.append(f"🦑 × {squid}")
+    if shark:      fishes.append(f"🦈 × {shark}")
+    if dragonfish: fishes.append(f"🐉 × {dragonfish}")
+    if fishes:
+        text += sep + "\n" + "\n".join(fishes) + "\n"
+
+    specials = []
+    if treasure: specials.append(f"🧳 × {treasure}")
+    if eggs:     specials.append(f"🥚 × {eggs}")
+    if specials:
+        text += sep + "\n" + "\n".join(specials) + "\n"
+
+    # Инлайн кнопки для открытия
+    markup = None
+    buttons = []
+    if eggs     > 0: buttons.append(InlineKeyboardButton("🥚 ОТКРЫТЬ", callback_data="open_egg_bag"))
+    if treasure > 0: buttons.append(InlineKeyboardButton("🧳 ОТКРЫТЬ", callback_data="open_treasure"))
+    if buttons:
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(*buttons)
+
+    bot.send_message(message.chat.id, text, parse_mode='Markdown', reply_markup=markup)
+
+@bot.message_handler(commands=['fishing'])
+def cmd_fishing(message):
+    user_id = message.from_user.id
+    username = message.from_user.username or message.from_user.first_name
+    register_user(user_id, username)
+    msg = bot.send_message(message.chat.id, fishing_text(user_id), reply_markup=fishing_keyboard(user_id))
+    # Обновим message_id для активных удочек
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('''UPDATE fishing SET chat_id=?, message_id=?
+                 WHERE user_id=? AND status IN ('fishing','ready')''',
+              (message.chat.id, msg.message_id, user_id))
+    conn.commit()
+    conn.close()
 
 @bot.message_handler(commands=['shop'])
 def cmd_shop(message):
@@ -667,7 +925,7 @@ def callback_harvest(call):
     veg = harvest_slot(user_id, slot)
     if veg:
         exp_gain = random.randint(20, 50)
-        add_exp(user_id, exp_gain)
+        add_exp(user_id, exp_gain, call.message.chat.id)
         bot.answer_callback_query(call.id, f"+1 {veg}! +{exp_gain} 🌟")
         bot.send_message(call.message.chat.id, f"+1 {veg}  |  +{exp_gain} 🌟 Опыта")
         bot.edit_message_text(garden_text(user_id), chat_id=call.message.chat.id,
@@ -707,7 +965,81 @@ def callback_buy_egg(call):
         bot.answer_callback_query(call.id, "❌ Недостаточно средств! Нужно 💵250")
         return
     spend_money(user_id, 250)
-    bot.answer_callback_query(call.id, "🥚 Открываем яйцо...")
+    # Яйцо идёт в инвентарь
+    add_eggs(user_id, 1)
+    bot.answer_callback_query(call.id, "✅ Яйцо добавлено в мешок!")
+    bot.send_message(call.message.chat.id,
+        "✅ Куплено *🥚 Загадочное яйцо*!\nОткрой его через */bag*", parse_mode='Markdown')
+
+# --- Рыбалка ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith('fish_start_'))
+def callback_fish_start(call):
+    user_id = call.from_user.id
+    slot = int(call.data.split('_')[2])
+    user = get_user(user_id)
+    if not user or user[5] < 3:
+        bot.answer_callback_query(call.id, "❌ Нужно минимум 3 🪱 наживки!")
+        return
+    start_fishing(user_id, slot, call.message.chat.id, call.message.message_id)
+    bot.edit_message_text(fishing_text(user_id), chat_id=call.message.chat.id,
+                          message_id=call.message.message_id, reply_markup=fishing_keyboard(user_id))
+    bot.answer_callback_query(call.id, "🎣 Удочка заброшена!")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('fish_wait_'))
+def callback_fish_wait(call):
+    bot.answer_callback_query(call.id, "⏳ Ещё не время! Подожди.")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('fish_collect_'))
+def callback_fish_collect(call):
+    user_id = call.from_user.id
+    slot = int(call.data.split('_')[2])
+
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('SELECT status, started_at FROM fishing WHERE user_id=? AND slot=?', (user_id, slot))
+    row = c.fetchone()
+    conn.close()
+
+    if row and row[0] == 'fishing':
+        started = datetime.fromisoformat(row[1])
+        if datetime.now() - started < timedelta(hours=1):
+            bot.answer_callback_query(call.id, "⏳ Ещё не готово!")
+            return
+
+    # Ловим 3 рыбы
+    catch = [random_fish() for _ in range(3)]
+    exp_gain = random.randint(50, 100)
+
+    for fish_item in catch:
+        add_fish_item(user_id, fish_item)
+    add_exp(user_id, exp_gain, call.message.chat.id)
+    reset_fishing_slot(user_id, slot)
+
+    lines = "\n".join([f"+ {f} {FISH_NAMES[f]}" for f in catch])
+    bot.answer_callback_query(call.id, "🎣 Улов собран!")
+    bot.send_message(
+        call.message.chat.id,
+        f"🎣 *Выловлено:*\n{lines}\n+ {exp_gain} 🌟 Опыта",
+        parse_mode='Markdown'
+    )
+    bot.edit_message_text(fishing_text(user_id), chat_id=call.message.chat.id,
+                          message_id=call.message.message_id, reply_markup=fishing_keyboard(user_id))
+
+# --- Открытие яйца из мешка ---
+@bot.callback_query_handler(func=lambda call: call.data == 'open_egg_bag')
+def callback_open_egg_bag(call):
+    user_id = call.from_user.id
+    user = get_user(user_id)
+    eggs = user[20] if len(user) > 20 else 0
+    if eggs < 1:
+        bot.answer_callback_query(call.id, "❌ Нет яиц!")
+        return
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('UPDATE users SET eggs=eggs-1 WHERE user_id=?', (user_id,))
+    conn.commit()
+    conn.close()
+    bot.answer_callback_query(call.id, "🥚 Открываем...")
     msg = bot.send_message(call.message.chat.id,
         "🥚❔ ЗАГАДОЧНОЕ ЯЙЦО ❔🥚\n\n_Открывается. . ._", parse_mode='Markdown')
     time.sleep(random.uniform(1, 2))
@@ -717,6 +1049,45 @@ def callback_buy_egg(call):
     bot.delete_message(call.message.chat.id, msg.message_id)
     bot.send_message(call.message.chat.id,
         f"И выпало {pet}\n\n{emoji} *{rarity}*", parse_mode='Markdown')
+    # --- Открытие сокровища ---
+@bot.callback_query_handler(func=lambda call: call.data == 'open_treasure')
+def callback_open_treasure(call):
+    user_id = call.from_user.id
+    user = get_user(user_id)
+    treasure = user[19] if len(user) > 19 else 0
+    if treasure < 1:
+        bot.answer_callback_query(call.id, "❌ Нет сокровища!")
+        return
+
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('UPDATE users SET treasure=treasure-1 WHERE user_id=?', (user_id,))
+    conn.commit()
+    conn.close()
+
+    bot.answer_callback_query(call.id, "🧳 Открываем сокровище...")
+    msg = bot.send_message(call.message.chat.id,
+        "🧳 *СОКРОВИЩЕ* 🧳\n\n_Открывается. . ._", parse_mode='Markdown')
+    time.sleep(random.uniform(1, 2))
+
+    # Шансы: 50% / 35% / 10% / 5%
+    tiers = [(50, 100, 500, 1), (35, 501, 1000, 3), (10, 1001, 3000, 5), (5, 3001, 10000, 8)]
+    weights = [t[0] for t in tiers]
+    tier = random.choices(tiers, weights=weights, k=1)[0]
+    _, min_m, max_m, egg_count = tier
+
+    # 50/50 деньги или яйца
+    if random.random() < 0.5:
+        reward_money = random.randint(min_m, max_m)
+        add_money(user_id, reward_money)
+        result_text = f"💵 +{reward_money} Монет!"
+    else:
+        add_eggs(user_id, egg_count)
+        result_text = f"🥚 +{egg_count} Яиц!"
+
+    bot.delete_message(call.message.chat.id, msg.message_id)
+    bot.send_message(call.message.chat.id,
+        f"🧳 *Сокровище открыто!*\n\n{result_text}", parse_mode='Markdown')
 
 # ===== ЗАПУСК =====
 init_db()
