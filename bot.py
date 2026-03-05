@@ -28,19 +28,11 @@ def get_rank(exp):
 
 # ===== ОВОЩИ =====
 VEGETABLES = [
-    ("🥔", 50),
-    ("🥕", 25),
-    ("🍅", 15),
-    ("🍆", 8),
-    ("🎃", 2),
+    ("🥔", 50), ("🥕", 25), ("🍅", 15), ("🍆", 8), ("🎃", 2),
 ]
-
 VEG_COLUMNS = {
-    "🥔": "potato",
-    "🥕": "carrot",
-    "🍅": "tomato",
-    "🍆": "eggplant",
-    "🎃": "pumpkin"
+    "🥔": "potato", "🥕": "carrot",
+    "🍅": "tomato", "🍆": "eggplant", "🎃": "pumpkin"
 }
 
 def random_vegetable():
@@ -52,6 +44,58 @@ def random_vegetable():
         if r <= cumulative:
             return veg
     return "🥔"
+
+# ===== ПЕТЫ =====
+PETS = {
+    "🟢 Обычные": {
+        "chance": 40,
+        "emoji": "🟢",
+        "pets": ["🐁","🐀","🐹","🐇","🐔","🐣","🐟","🐠","🐌","🐜","🐛","🪰","🪲","🦗","🪳","🐝","🐞"]
+    },
+    "🔵 Редкие": {
+        "chance": 20,
+        "emoji": "🔵",
+        "pets": ["🐈","🐈‍⬛","🐕","🐩","🐓","🦆","🪿","🦜","🕊️","🦔","🐿️","🦫","🦝","🦨","🦎","🐸","🐍","🐧"]
+    },
+    "🟣 Эпические": {
+        "chance": 17,
+        "emoji": "🟣",
+        "pets": ["🦊","🐺","🦉","🦅","🦚","🦩","🦦","🦇","🦘","🐒","🦓","🦙","🦥","🐢","🐊","🦑","🦀","🦐","🦞"]
+    },
+    "🟡 Легендарные": {
+        "chance": 11,
+        "emoji": "🟡",
+        "pets": ["🦁","🐅","🐆","🦒","🐘","🦏","🦛","🐪","🐎","🫎","🦌","🐗","🐬","🪼","🦈","🦢","🐼","🐨","🐻"]
+    },
+    "🔴 Мифические": {
+        "chance": 7,
+        "emoji": "🔴",
+        "pets": ["🦍","🦧","🦣","🦕","🐋","🐻‍❄️","🦬","🐂","🐙"]
+    },
+    "🌈 Хроматические": {
+        "chance": 4,
+        "emoji": "🌈",
+        "pets": ["🐉","🦖","🦄","🐦‍🔥","🦤"]
+    },
+    "☄️ Секретные": {
+        "chance": 1,
+        "emoji": "☄️",
+        "pets": ["🤡","😈","😇","🤖","👽","👻","💀","⛄"]
+    },
+}
+
+# Маппинг пет -> редкость
+PET_RARITY = {}
+for rarity, data in PETS.items():
+    for pet in data["pets"]:
+        PET_RARITY[pet] = (rarity, data["emoji"])
+
+def random_pet():
+    # Корректируем шансы под 100%: 40+20+17+11+7+4+1=100
+    groups = list(PETS.keys())
+    weights = [PETS[g]["chance"] for g in groups]
+    chosen_group = random.choices(groups, weights=weights, k=1)[0]
+    return random.choice(PETS[chosen_group]["pets"]), chosen_group
 
 # ===== БАЗА ДАННЫХ =====
 def init_db():
@@ -73,12 +117,11 @@ def init_db():
             pumpkin    INTEGER DEFAULT 0
         )
     ''')
-    # Если старая БД без овощей — добавляем колонки
-    for col in ['potato', 'carrot', 'tomato', 'eggplant', 'pumpkin']:
+    for col in ['potato','carrot','tomato','eggplant','pumpkin']:
         try:
             c.execute(f'ALTER TABLE users ADD COLUMN {col} INTEGER DEFAULT 0')
-        except:
-            pass
+        except: pass
+
     c.execute('''
         CREATE TABLE IF NOT EXISTS garden (
             user_id    INTEGER,
@@ -91,13 +134,23 @@ def init_db():
             PRIMARY KEY (user_id, slot)
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS pets (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id    INTEGER,
+            pet        TEXT,
+            rarity     TEXT,
+            count      INTEGER DEFAULT 1,
+            UNIQUE(user_id, pet)
+        )
+    ''')
     conn.commit()
     conn.close()
 
 def get_user(user_id):
     conn = sqlite3.connect('game.db')
     c = conn.cursor()
-    c.execute('SELECT * FROM users WHERE user_id = ?', (user_id,))
+    c.execute('SELECT * FROM users WHERE user_id=?', (user_id,))
     user = c.fetchone()
     conn.close()
     return user
@@ -105,7 +158,7 @@ def get_user(user_id):
 def get_user_by_username(username):
     conn = sqlite3.connect('game.db')
     c = conn.cursor()
-    c.execute('SELECT * FROM users WHERE username = ?', (username,))
+    c.execute('SELECT * FROM users WHERE username=?', (username,))
     user = c.fetchone()
     conn.close()
     return user
@@ -113,9 +166,9 @@ def get_user_by_username(username):
 def register_user(user_id, username):
     conn = sqlite3.connect('game.db')
     c = conn.cursor()
-    c.execute('INSERT OR IGNORE INTO users (user_id, username) VALUES (?, ?)', (user_id, username))
+    c.execute('INSERT OR IGNORE INTO users (user_id, username) VALUES (?,?)', (user_id, username))
     for slot in range(1, 7):
-        c.execute('INSERT OR IGNORE INTO garden (user_id, slot) VALUES (?, ?)', (user_id, slot))
+        c.execute('INSERT OR IGNORE INTO garden (user_id, slot) VALUES (?,?)', (user_id, slot))
     conn.commit()
     conn.close()
 
@@ -128,6 +181,60 @@ def update_daily(user_id, money, exp, seeds, bait, timestamp):
     ''', (money, exp, seeds, bait, timestamp, user_id))
     conn.commit()
     conn.close()
+
+def add_exp(user_id, amount):
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('UPDATE users SET exp=exp+? WHERE user_id=?', (amount, user_id))
+    conn.commit()
+    conn.close()
+
+def add_money(user_id, amount):
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('UPDATE users SET money=money+? WHERE user_id=?', (amount, user_id))
+    conn.commit()
+    conn.close()
+
+def spend_money(user_id, amount):
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('UPDATE users SET money=money-? WHERE user_id=?', (amount, user_id))
+    conn.commit()
+    conn.close()
+
+def add_seeds(user_id, amount):
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('UPDATE users SET seeds=seeds+? WHERE user_id=?', (amount, user_id))
+    conn.commit()
+    conn.close()
+
+def add_bait(user_id, amount):
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('UPDATE users SET bait=bait+? WHERE user_id=?', (amount, user_id))
+    conn.commit()
+    conn.close()
+
+def add_pet(user_id, pet, rarity):
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO pets (user_id, pet, rarity, count)
+        VALUES (?,?,?,1)
+        ON CONFLICT(user_id, pet) DO UPDATE SET count=count+1
+    ''', (user_id, pet, rarity))
+    conn.commit()
+    conn.close()
+
+def get_pets(user_id):
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('SELECT pet, rarity, count FROM pets WHERE user_id=? ORDER BY rarity', (user_id,))
+    pets = c.fetchall()
+    conn.close()
+    return pets
 
 def get_top_users(limit=15):
     conn = sqlite3.connect('game.db')
@@ -191,8 +298,7 @@ def get_ready_to_harvest():
     threshold = (datetime.now() - timedelta(minutes=30)).isoformat()
     c.execute('''
         SELECT user_id, slot, chat_id, message_id
-        FROM garden
-        WHERE status='growing' AND planted_at <= ?
+        FROM garden WHERE status='growing' AND planted_at <= ?
     ''', (threshold,))
     rows = c.fetchall()
     conn.close()
@@ -233,7 +339,17 @@ def garden_keyboard(user_id):
     markup.add(*buttons)
     return markup
 
-# ===== ФОНОВЫЙ ПОТОК (проверяет огород) =====
+# ===== МАГАЗИН UI =====
+def shop_keyboard():
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton("🌱 Семена×5 — 💵80",         callback_data="buy_seeds"),
+        InlineKeyboardButton("🪱 Наживка×5 — 💵60",        callback_data="buy_bait"),
+        InlineKeyboardButton("🥚 Загадочное яйцо — 💵250", callback_data="buy_egg"),
+    )
+    return markup
+
+# ===== ФОНОВЫЙ ПОТОК =====
 def garden_checker():
     while True:
         try:
@@ -280,7 +396,7 @@ def cmd_daily(message):
         diff = now - last
         if diff < timedelta(hours=24):
             remaining = timedelta(hours=24) - diff
-            hours = int(remaining.total_seconds() // 3600)
+            hours   = int(remaining.total_seconds() // 3600)
             minutes = int((remaining.total_seconds() % 3600) // 60)
             bot.send_message(message.chat.id, f"⏳ Следующая награда через {hours:02d}:{minutes:02d}")
             return
@@ -313,12 +429,10 @@ def cmd_bio(message):
         username = message.from_user.username or message.from_user.first_name
         register_user(user_id, username)
         user = get_user(user_id)
-
     username = user[1]
     money    = user[2]
     exp      = user[3]
     rank     = get_rank(exp)
-
     bot.send_message(
         message.chat.id,
         f"*👤 {username}*\n\n"
@@ -349,12 +463,11 @@ def cmd_garden(message):
         garden_text(user_id),
         reply_markup=garden_keyboard(user_id)
     )
-    # Обновляем message_id для растущих слотов
     conn = sqlite3.connect('game.db')
     c = conn.cursor()
     c.execute('''
         UPDATE garden SET chat_id=?, message_id=?
-        WHERE user_id=? AND status IN ('growing', 'ready')
+        WHERE user_id=? AND status IN ('growing','ready')
     ''', (message.chat.id, msg.message_id, user_id))
     conn.commit()
     conn.close()
@@ -364,7 +477,7 @@ def cmd_bag(message):
     user_id = message.from_user.id
     username = message.from_user.username or message.from_user.first_name
     register_user(user_id, username)
-    user = get_user(user_id)
+    user     = get_user(user_id)
     money    = user[2]
     seeds    = user[4]
     bait     = user[5]
@@ -373,7 +486,6 @@ def cmd_bag(message):
     tomato   = user[9]
     eggplant = user[10]
     pumpkin  = user[11]
-
     text = f"В мешке у игрока *{username}*:\n\n"
     text += f"💵 Денег: {money}\n"
     text += f"🌱 Семян: {seeds}\n"
@@ -384,6 +496,62 @@ def cmd_bag(message):
     if tomato   > 0: text += f"🍅 × {tomato}\n"
     if eggplant > 0: text += f"🍆 × {eggplant}\n"
     if pumpkin  > 0: text += f"🎃 × {pumpkin}\n"
+    bot.send_message(message.chat.id, text, parse_mode='Markdown')
+
+@bot.message_handler(commands=['shop'])
+def cmd_shop(message):
+    user_id = message.from_user.id
+    username = message.from_user.username or message.from_user.first_name
+    register_user(user_id, username)
+    bot.send_message(
+        message.chat.id,
+        "🛒--- МАГАЗИН ---🛒",
+        reply_markup=shop_keyboard()
+    )
+
+@bot.message_handler(commands=['zoo'])
+def cmd_zoo(message):
+    args = message.text.split()
+    if len(args) > 1:
+        target = args[1].replace('@', '')
+        user = get_user_by_username(target)
+        if not user:
+            bot.send_message(message.chat.id, "❌ Пользователь не найден!")
+            return
+        user_id  = user[0]
+        username = user[1]
+    else:
+        user_id  = message.from_user.id
+        username = message.from_user.username or message.from_user.first_name
+        register_user(user_id, username)
+
+    pets = get_pets(user_id)
+    if not pets:
+        bot.send_message(message.chat.id, f"🐾 У игрока *{username}* нет питомцев!", parse_mode='Markdown')
+        return
+
+    # Группируем по редкости
+    rarity_order = [
+        "☄️ Секретные", "🌈 Хроматические", "🔴 Мифические",
+        "🟡 Легендарные", "🟣 Эпические", "🔵 Редкие", "🟢 Обычные"
+    ]
+    grouped = {}
+    for pet, rarity, count in pets:
+        if rarity not in grouped:
+            grouped[rarity] = []
+        grouped[rarity].append((pet, count))
+
+    text = f"🐾 Питомцы игрока *{username}* 🐾\n\n"
+    for rarity in rarity_order:
+        if rarity in grouped:
+            emoji = PETS[rarity]["emoji"]
+            text += f"{emoji} *{rarity}*\n"
+            for pet, count in grouped[rarity]:
+                if count > 1:
+                    text += f"  {pet} ×{count}\n"
+                else:
+                    text += f"  {pet}\n"
+            text += "\n"
 
     bot.send_message(message.chat.id, text, parse_mode='Markdown')
 
@@ -414,7 +582,6 @@ def callback_growing(call):
 def callback_harvest(call):
     user_id = call.from_user.id
     slot = int(call.data.split('_')[1])
-    # Если статус growing но время вышло — сначала помечаем ready
     conn = sqlite3.connect('game.db')
     c = conn.cursor()
     c.execute('SELECT status, planted_at FROM garden WHERE user_id=? AND slot=?', (user_id, slot))
@@ -430,8 +597,10 @@ def callback_harvest(call):
             return
     veg = harvest_slot(user_id, slot)
     if veg:
-        bot.answer_callback_query(call.id, f"+1 {veg} собрано!")
-        bot.send_message(call.message.chat.id, f"+1 {veg}")
+        exp_gain = random.randint(20, 50)
+        add_exp(user_id, exp_gain)
+        bot.answer_callback_query(call.id, f"+1 {veg} собрано! +{exp_gain} 🌟")
+        bot.send_message(call.message.chat.id, f"+1 {veg}  |  +{exp_gain} 🌟 Опыта")
         bot.edit_message_text(
             garden_text(user_id),
             chat_id=call.message.chat.id,
@@ -440,6 +609,62 @@ def callback_harvest(call):
         )
     else:
         bot.answer_callback_query(call.id, "❌ Ошибка!")
+
+# ===== КОЛБЭКИ МАГАЗИНА =====
+
+@bot.callback_query_handler(func=lambda call: call.data == 'buy_seeds')
+def callback_buy_seeds(call):
+    user_id = call.from_user.id
+    user = get_user(user_id)
+    if not user or user[2] < 80:
+        bot.answer_callback_query(call.id, "❌ Недостаточно средств! Нужно 💵80")
+        return
+    spend_money(user_id, 80)
+    add_seeds(user_id, 5)
+    bot.answer_callback_query(call.id, "✅ Куплено 🌱×5!")
+    bot.send_message(call.message.chat.id, "✅ Ты купил *🌱 Семена×5*!", parse_mode='Markdown')
+
+@bot.callback_query_handler(func=lambda call: call.data == 'buy_bait')
+def callback_buy_bait(call):
+    user_id = call.from_user.id
+    user = get_user(user_id)
+    if not user or user[2] < 60:
+        bot.answer_callback_query(call.id, "❌ Недостаточно средств! Нужно 💵60")
+        return
+    spend_money(user_id, 60)
+    add_bait(user_id, 5)
+    bot.answer_callback_query(call.id, "✅ Куплено 🪱×5!")
+    bot.send_message(call.message.chat.id, "✅ Ты купил *🪱 Наживка×5*!", parse_mode='Markdown')
+
+@bot.callback_query_handler(func=lambda call: call.data == 'buy_egg')
+def callback_buy_egg(call):
+    user_id = call.from_user.id
+    user = get_user(user_id)
+    if not user or user[2] < 250:
+        bot.answer_callback_query(call.id, "❌ Недостаточно средств! Нужно 💵250")
+        return
+    spend_money(user_id, 250)
+    bot.answer_callback_query(call.id, "🥚 Открываем яйцо...")
+
+    # Анимация открытия
+    msg = bot.send_message(
+        call.message.chat.id,
+        "🥚❔ ЗАГАДОЧНОЕ ЯЙЦО ❔🥚\n\n_Открывается. . ._",
+        parse_mode='Markdown'
+    )
+    time.sleep(random.uniform(1, 2))
+
+    # Выпадает пет
+    pet, rarity = random_pet()
+    add_pet(user_id, pet, rarity)
+    emoji = PETS[rarity]["emoji"]
+
+    bot.delete_message(call.message.chat.id, msg.message_id)
+    bot.send_message(
+        call.message.chat.id,
+        f"И выпало {pet}\n\n{emoji} *{rarity}*",
+        parse_mode='Markdown'
+    )
 
 # ===== ЗАПУСК =====
 init_db()
