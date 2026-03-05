@@ -154,28 +154,47 @@ def random_pet():
 def init_db():
     conn = sqlite3.connect('game.db')
     c = conn.cursor()
+    
+    # Удаляем старые таблицы если структура сломана
     c.execute('''
         CREATE TABLE IF NOT EXISTS users (
-            user_id    INTEGER PRIMARY KEY,
-            username   TEXT,
-            money      INTEGER DEFAULT 0,
-            exp        INTEGER DEFAULT 0,
-            seeds      INTEGER DEFAULT 0,
-            bait       INTEGER DEFAULT 0,
-            last_daily TEXT DEFAULT NULL,
-            potato     INTEGER DEFAULT 0,
-            carrot     INTEGER DEFAULT 0,
-            tomato     INTEGER DEFAULT 0,
-            eggplant   INTEGER DEFAULT 0,
-            pumpkin    INTEGER DEFAULT 0
+            user_id      INTEGER PRIMARY KEY,
+            username     TEXT,
+            money        INTEGER DEFAULT 0,
+            exp          INTEGER DEFAULT 0,
+            seeds        INTEGER DEFAULT 0,
+            bait         INTEGER DEFAULT 0,
+            last_daily   TEXT DEFAULT NULL,
+            potato       INTEGER DEFAULT 0,
+            carrot       INTEGER DEFAULT 0,
+            tomato       INTEGER DEFAULT 0,
+            eggplant     INTEGER DEFAULT 0,
+            pumpkin      INTEGER DEFAULT 0,
+            fish         INTEGER DEFAULT 0,
+            tropical_fish INTEGER DEFAULT 0,
+            crab         INTEGER DEFAULT 0,
+            lobster      INTEGER DEFAULT 0,
+            squid        INTEGER DEFAULT 0,
+            shark        INTEGER DEFAULT 0,
+            dragonfish   INTEGER DEFAULT 0,
+            treasure     INTEGER DEFAULT 0,
+            eggs         INTEGER DEFAULT 0,
+            rank_index   INTEGER DEFAULT 0
         )
     ''')
-    for col in ['potato','carrot','tomato','eggplant','pumpkin',
-                'fish','tropical_fish','crab','lobster','squid',
-                'shark','dragonfish','treasure','eggs','rank_index']:
-        try:
-            c.execute(f'ALTER TABLE users ADD COLUMN {col} INTEGER DEFAULT 0')
-        except: pass
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS garden (
+            user_id    INTEGER,
+            slot       INTEGER,
+            status     TEXT DEFAULT 'empty',
+            planted_at TEXT DEFAULT NULL,
+            vegetable  TEXT DEFAULT NULL,
+            chat_id    INTEGER DEFAULT NULL,
+            message_id INTEGER DEFAULT NULL,
+            PRIMARY KEY (user_id, slot)
+        )
+    ''')
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS fishing (
@@ -188,18 +207,39 @@ def init_db():
             PRIMARY KEY (user_id, slot)
         )
     ''')
+
     c.execute('''
         CREATE TABLE IF NOT EXISTS pets (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id    INTEGER,
-            pet        TEXT,
-            rarity     TEXT,
-            count      INTEGER DEFAULT 1,
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id  INTEGER,
+            pet      TEXT,
+            rarity   TEXT,
+            count    INTEGER DEFAULT 1,
             UNIQUE(user_id, pet)
         )
     ''')
+
+    # Добавляем колонки если их нет (для старых БД)
+    new_cols = [
+        ('fish',          'INTEGER DEFAULT 0'),
+        ('tropical_fish', 'INTEGER DEFAULT 0'),
+        ('crab',          'INTEGER DEFAULT 0'),
+        ('lobster',       'INTEGER DEFAULT 0'),
+        ('squid',         'INTEGER DEFAULT 0'),
+        ('shark',         'INTEGER DEFAULT 0'),
+        ('dragonfish',    'INTEGER DEFAULT 0'),
+        ('treasure',      'INTEGER DEFAULT 0'),
+        ('eggs',          'INTEGER DEFAULT 0'),
+        ('rank_index',    'INTEGER DEFAULT 0'),
+    ]
+    for col, col_type in new_cols:
+        try:
+            c.execute(f'ALTER TABLE users ADD COLUMN {col} {col_type}')
+        except: pass
+
     conn.commit()
     conn.close()
+    print("База данных инициализирована!")
 
 def get_user(user_id):
     conn = sqlite3.connect('game.db')
