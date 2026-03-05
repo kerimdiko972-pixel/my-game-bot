@@ -327,44 +327,41 @@ def add_fish_item(user_id, fish_emoji):
 def check_rank_up(user_id, chat_id):
     user = get_user(user_id)
     if not user: return
-    current_exp   = user[3]
-    stored_index  = user[14] if len(user) > 14 else 0  # rank_index колонка
+    current_exp  = user[3]
+    stored_index = user[21] if len(user) > 21 else 0
 
-    new_index = 0
-    for i, (min_exp, _) in enumerate(RANK_ORDER):
-        if current_exp >= min_exp:
-            new_index = i
+    # Находим ВСЕ новые ранги которые игрок достиг но ещё не получил
+    for i, (min_exp, rank_name) in enumerate(RANK_ORDER):
+        if i == 0: continue  # Новичок — без награды
+        if current_exp >= min_exp and i > stored_index:
+            rewards = RANK_REWARDS.get(rank_name, {})
+            money = rewards.get("money", 0)
+            seeds = rewards.get("seeds", 0)
+            bait  = rewards.get("bait", 0)
+            eggs  = rewards.get("eggs", 0)
 
-    if new_index <= stored_index:
-        return
+            conn = sqlite3.connect('game.db')
+            c = conn.cursor()
+            c.execute('''UPDATE users SET rank_index=?, money=money+?, seeds=seeds+?,
+                         bait=bait+?, eggs=eggs+? WHERE user_id=?''',
+                      (i, money, seeds, bait, eggs, user_id))
+            conn.commit()
+            conn.close()
 
-    # Новый ранг!
-    _, rank_name = RANK_ORDER[new_index]
-    rewards = RANK_REWARDS.get(rank_name, {})
-    money = rewards.get("money", 0)
-    seeds = rewards.get("seeds", 0)
-    bait  = rewards.get("bait", 0)
-    eggs  = rewards.get("eggs", 0)
+            reward_lines = [f"💵 +{money}"]
+            if seeds: reward_lines.append(f"🌱 +{seeds} Семян")
+            if bait:  reward_lines.append(f"🪱 +{bait} Наживок")
+            if eggs:  reward_lines.append(f"🥚 +{eggs} Яиц")
 
-    conn = sqlite3.connect('game.db')
-    c = conn.cursor()
-    c.execute('''UPDATE users SET rank_index=?, money=money+?, seeds=seeds+?, bait=bait+?, eggs=eggs+?
-                 WHERE user_id=?''', (new_index, money, seeds, bait, eggs, user_id))
-    conn.commit()
-    conn.close()
-
-    reward_lines = [f"💵 +{money}"]
-    if seeds: reward_lines.append(f"🌱 +{seeds} Семян")
-    if bait:  reward_lines.append(f"🪱 +{bait} Наживок")
-    if eggs:  reward_lines.append(f"🥚 +{eggs} Яиц")
-
-    bot.send_message(
-        chat_id,
-        f"🎉 *Новый ранг!*\n\n"
-        f"🏅 Ты достиг ранга:\n*{rank_name}*\n\n"
-        f"*Награда:*\n" + "\n".join(reward_lines),
-        parse_mode='Markdown'
-    )
+            bot.send_message(
+                chat_id,
+                f"🎉 *Новый ранг!*\n\n"
+                f"🏅 Ты достиг ранга:\n*{rank_name}*\n\n"
+                f"*Награда:*\n" + "\n".join(reward_lines),
+                parse_mode='Markdown'
+            )
+            # Обновляем stored_index для следующей итерации
+            stored_index = i
 
 # Рыбалка - вспомогательные функции
 def get_fishing(user_id):
@@ -976,8 +973,15 @@ def callback_harvest(call):
     if veg:
         exp_gain = random.randint(20, 50)
         add_exp(user_id, exp_gain, call.message.chat.id)
-        bot.answer_callback_query(call.id, f"+1 {veg}! +{exp_gain} 🌟")
-        bot.send_message(call.message.chat.id, f"+1 {veg}  |  +{exp_gain} 🌟 Опыта")
+
+        # 10% шанс получить червяка
+        bonus_worm = ""
+        if random.randint(1, 10) == 1:
+            add_bait(user_id, 1)
+            bonus_worm = "  +1 🪱"
+
+        bot.answer_callback_query(call.id, f"+1 {veg}! +{exp_gain} 🌟{bonus_worm}")
+        bot.send_message(call.message.chat.id, f"+1 {veg}  |  +{exp_gain} 🌟 Опыта{bonus_worm}")
         bot.edit_message_text(garden_text(user_id), chat_id=call.message.chat.id,
                               message_id=call.message.message_id, reply_markup=garden_keyboard(user_id))
     else:
@@ -1097,8 +1101,11 @@ def callback_open_egg_bag(call):
     add_pet(user_id, pet, rarity)
     emoji = PETS[rarity]["emoji"]
     bot.delete_message(call.message.chat.id, msg.message_id)
-    bot.send_message(call.message.chat.id,
-        f"И выпало {pet}\n\n{emoji} *{rarity}*", parse_mode='Markdown')
+    bot.send_message(
+        call.message.chat.id,
+        f"_✨ И выпало. . ._\n\n*{emoji}{rarity} {pet}*",
+        parse_mode='Markdown'
+    )
     # --- Открытие сокровища ---
 @bot.callback_query_handler(func=lambda call: call.data == 'open_treasure')
 def callback_open_treasure(call):
