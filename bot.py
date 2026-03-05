@@ -536,6 +536,61 @@ def cmd_sell(message):
         parse_mode='Markdown'
     )
 
+ADMIN_USERNAME = "Sid_17jj"
+
+@bot.message_handler(commands=['set'])
+def cmd_set(message):
+    if message.from_user.username != ADMIN_USERNAME:
+        return
+
+    args = message.text.split()
+    if len(args) != 4:
+        bot.send_message(message.chat.id, "❌ Синтаксис: /set @username поле значение")
+        return
+
+    target_username = args[1].replace('@', '')
+    field = args[2].lower()
+    try:
+        value = int(args[3])
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ Значение должно быть числом!")
+        return
+
+    allowed_fields = {
+        "money":    "money",
+        "exp":      "exp",
+        "seeds":    "seeds",
+        "bait":     "bait",
+        "potato":   "potato",
+        "carrot":   "carrot",
+        "tomato":   "tomato",
+        "eggplant": "eggplant",
+        "pumpkin":  "pumpkin",
+    }
+
+    if field not in allowed_fields:
+        fields_list = ", ".join(allowed_fields.keys())
+        bot.send_message(message.chat.id, f"❌ Неизвестное поле!\nДоступные: {fields_list}")
+        return
+
+    col = allowed_fields[field]
+    user = get_user_by_username(target_username)
+    if not user:
+        bot.send_message(message.chat.id, f"❌ Игрок @{target_username} не найден!")
+        return
+
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute(f'UPDATE users SET {col}=? WHERE username=?', (value, target_username))
+    conn.commit()
+    conn.close()
+
+    bot.send_message(message.chat.id,
+        f"✅ Готово!\n"
+        f"👤 @{target_username}\n"
+        f"📝 {field} → {value}"
+        )
+
 @bot.message_handler(commands=['zoo'])
 def cmd_zoo(message):
     args = message.text.split()
