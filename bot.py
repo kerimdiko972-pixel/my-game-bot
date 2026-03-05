@@ -554,7 +554,17 @@ def garden_checker():
 def run_bot():
     while True:
         try:
-            bot.polling(non_stop=True)
+            bot.polling(non_stop=True, skip_pending=True, timeout=30)
+        except telebot.apihelper.ApiTelegramException as e:
+            if '409' in str(e):
+                print("Конфликт! Удаляю webhook и жду 10 сек...")
+                try:
+                    bot.delete_webhook(drop_pending_updates=True)
+                except: pass
+                time.sleep(10)
+            else:
+                print(f"Ошибка API: {e}")
+                time.sleep(5)
         except Exception as e:
             print(f"Ошибка бота: {e}")
             time.sleep(5)
@@ -1091,6 +1101,10 @@ def callback_open_treasure(call):
 
 # ===== ЗАПУСК =====
 init_db()
+
+# Удаляем webhook и ждём пока Telegram освободит соединение
+bot.delete_webhook(drop_pending_updates=True)
+time.sleep(3)
 print("Бот запущен!")
 
 threading.Thread(target=garden_checker, daemon=True).start()
