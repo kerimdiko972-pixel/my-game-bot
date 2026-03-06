@@ -1334,28 +1334,37 @@ def callback_slot_spin(call):
     winnings = 0
     result_text = ""
 
-    counts = {s: slots.count(s) for s in set(slots)}
-    max_count = max(counts.values())
-    winning_symbol = max(counts, key=counts.get)
+    counts = {}
+    for s in slots:
+        counts[s] = counts.get(s, 0) + 1
 
-    if max_count == 3:
-        multiplier = SLOT_THREE_MULTIPLIERS[winning_symbol]
+    # Ищем три одинаковых
+    triple = None
+    double = None
+    for symbol, count in counts.items():
+        if count == 3:
+            triple = symbol
+        elif count == 2:
+            double = symbol
+
+    if triple:
+        multiplier = SLOT_THREE_MULTIPLIERS[triple]
         winnings = int(bet * multiplier)
         result_text = (
-            f"🎉 *ТРИ {winning_symbol}!*\n"
-            f"Множитель: x{multiplier}\n"
-            f"Выигрыш: +💵{winnings}"
+            f"🎉 *ТРИ {triple}{triple}{triple}!*\n"
+            f"💵{bet} × {multiplier} = {winnings}\n\n"
+            f"*Получено: +{winnings} 💵*"
         )
-    elif max_count == 2:
-        multiplier = SLOT_TWO_MULTIPLIERS[winning_symbol]
+    elif double:
+        multiplier = SLOT_TWO_MULTIPLIERS[double]
         winnings = int(bet * multiplier)
         result_text = (
-            f"✨ *Два {winning_symbol}!*\n"
-            f"Множитель: x{multiplier}\n"
-            f"Выигрыш: +💵{winnings}"
+            f"✨ *Комбо из двух {double}{double}!*\n"
+            f"💵{bet} × {multiplier} = {winnings}\n\n"
+            f"*Получено: +{winnings} 💵*"
         )
     else:
-        result_text = f"😔 *Нет совпадений*\nПотеряно: -💵{bet}"
+        result_text = f"😔 *Нет совпадений*\n\n*Потеряно: -{bet} 💵*"
 
     if winnings > 0:
         add_money(user_id, winnings)
