@@ -144,6 +144,16 @@ for rarity, data in PETS.items():
     for pet in data["pets"]:
         PET_RARITY[pet] = (rarity, data["emoji"])
 
+RARITY_SINGULAR = {
+    "🟢 Обычные":      "🟢 Обычный",
+    "🔵 Редкие":       "🔵 Редкий",
+    "🟣 Эпические":    "🟣 Эпический",
+    "🟡 Легендарные":  "🟡 Легендарный",
+    "🔴 Мифические":   "🔴 Мифический",
+    "🌈 Хроматические":"🌈 Хроматический",
+    "☄️ Секретные":    "☄️ Секретный",
+}
+
 def random_pet():
     groups = list(PETS.keys())
     weights = [PETS[g]["chance"] for g in groups]
@@ -1223,7 +1233,7 @@ def callback_open_egg_bag(call):
     bot.delete_message(call.message.chat.id, msg.message_id)
     bot.send_message(
         call.message.chat.id,
-        f"_✨ И выпало. . ._\n\n*{emoji}{rarity} {pet}*",
+        f"_✨ И выпал. . ._\n\n*{RARITY_SINGULAR.get(rarity, rarity)} {pet}*",
         parse_mode='Markdown'
     )
     # --- Открытие сокровища ---
