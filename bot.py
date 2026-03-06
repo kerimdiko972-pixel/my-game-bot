@@ -687,6 +687,25 @@ def cmd_rating(message):
         text += f"{i}. {username} — {money} 💵\n"
     bot.send_message(message.chat.id, text)
 
+@bot.message_handler(commands=['rating_rank'])
+def cmd_rating_rank(message):
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('SELECT username, exp, rank_index FROM users ORDER BY exp DESC LIMIT 15')
+    top = c.fetchall()
+    conn.close()
+
+    if not top:
+        bot.send_message(message.chat.id, "Рейтинг пока пуст!")
+        return
+
+    text = "🏆 Рейтинг игроков по рангу 🌟:\n\n"
+    for i, (username, exp, rank_index) in enumerate(top, 1):
+        rank = get_rank(exp)
+        text += f"{i}. {username} — {rank} ({exp} 🌟)\n"
+
+    bot.send_message(message.chat.id, text)
+
 @bot.message_handler(commands=['garden'])
 def cmd_garden(message):
     user_id = message.from_user.id
@@ -790,6 +809,7 @@ def cmd_shop(message):
     username = message.from_user.username or message.from_user.first_name
     register_user(user_id, username)
     bot.send_message(message.chat.id, "🛒--- МАГАЗИН ---🛒", reply_markup=shop_keyboard())
+
 @bot.message_handler(commands=['sell'])
 def cmd_sell(message):
     user_id = message.from_user.id
@@ -797,18 +817,19 @@ def cmd_sell(message):
     register_user(user_id, username)
     user = get_user(user_id)
 
-    potato   = user[7]
-    carrot   = user[8]
-    tomato   = user[9]
-    eggplant = user[10]
-    pumpkin  = user[11]
-
     prices = {
-        "🥔": ("potato",   potato,   8),
-        "🥕": ("carrot",   carrot,   15),
-        "🍅": ("tomato",   tomato,   20),
-        "🍆": ("eggplant", eggplant, 35),
-        "🎃": ("pumpkin",  pumpkin,  80),
+        "🥔": ("potato",        user[7],  8),
+        "🥕": ("carrot",        user[8],  15),
+        "🍅": ("tomato",        user[9],  20),
+        "🍆": ("eggplant",      user[10], 35),
+        "🎃": ("pumpkin",       user[11], 80),
+        "🐟": ("fish",          user[12], 10),
+        "🐠": ("tropical_fish", user[13], 20),
+        "🦀": ("crab",          user[14], 45),
+        "🦞": ("lobster",       user[15], 70),
+        "🦑": ("squid",         user[16], 90),
+        "🦈": ("shark",         user[17], 200),
+        "🐉": ("dragonfish",    user[18], 500),
     }
 
     total = 0
@@ -826,7 +847,7 @@ def cmd_sell(message):
 
     if total == 0:
         conn.close()
-        bot.send_message(message.chat.id, "❌ Нечего продавать! Сначала собери урожай в /garden")
+        bot.send_message(message.chat.id, "❌ Нечего продавать!\nСобери урожай /garden или улов /fishing")
         return
 
     c.execute('UPDATE users SET money=money+? WHERE user_id=?', (total, user_id))
