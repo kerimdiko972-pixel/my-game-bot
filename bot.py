@@ -196,6 +196,32 @@ def spin_slot():
     weights = [w for _, w in SLOT_SYMBOLS]
     return random.choices(symbols, weights=weights, k=3)
 
+pending_dice = {}
+# Структура: {user_id: {'bet': int, 'round': int, 'multiplier': float, 'accumulated': int, 'status': str}}
+
+DICE_MULTIPLIERS = {
+    1: 1.3, 2: 1.4, 3: 1.5, 4: 1.6, 5: 1.7,
+    6: 1.8, 7: 1.9, 8: 2.0, 9: 2.1, 10: 2.2
+}
+
+def dice_grid(current_round, last_result=None, exploded=False):
+    cells = []
+    for i in range(1, 11):
+        if i < current_round:
+            cells.append(f"{i} ✅")
+        elif i == current_round:
+            if exploded:
+                cells.append(f"{i} 💣")
+            elif last_result is not None:
+                cells.append(f"{i} ✅")
+            else:
+                cells.append(f"{i} ⚪")
+        else:
+            cells.append(f"{i} ⚪")
+    row1 = "  ".join(cells[:5])
+    row2 = "  ".join(cells[5:])
+    return f"{row1}\n{row2}"
+
 # ===== БАЗА ДАННЫХ =====
 def init_db():
     conn = sqlite3.connect('game.db')
@@ -767,9 +793,11 @@ def cmd_casino(message):
     user = get_user(user_id)
     money = user[2] if user else 0
 
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🎰 Слот машина 🎰", callback_data="casino_slots"))
-
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton("🎰 Слот машина 🎰", callback_data="casino_slots"),
+        InlineKeyboardButton("🎲 Кубик-Бомба 💣",  callback_data="casino_dice"),
+    )
     bot.send_message(
         message.chat.id,
         f"🎰💰 - К - А - З - И - Н - О - 💰🎰\n"
@@ -1046,25 +1074,19 @@ def handle_bet_input(message):
     user_id = message.from_user.id
     user = get_user(user_id)
     money = user[2] if user else 0
-
     try:
         bet = int(message.text.strip())
     except ValueError:
         bot.send_message(message.chat.id, "❌ Введи число! Например: 500")
         return
-
     if bet < 100:
         bot.send_message(message.chat.id, "❌ Минимальная ставка 💵100!")
         return
-
     if bet > money:
         bot.send_message(message.chat.id, f"❌ Недостаточно средств! У тебя только 💵{money}")
         return
-
-    # Снимаем деньги и сохраняем ставку
     spend_money(user_id, bet)
     pending_bets[user_id] = bet
-
     sep = "– – – – – – – – – – – – – – –"
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
@@ -1076,6 +1098,44 @@ def handle_bet_input(message):
         f"🎰 СЛОТ МАШИНА 🎰\n{sep}\n"
         f"Ставка: 💵 {bet}\n{sep}\n\n"
         f"| ❔ | ❔ | ❔ |",
+        reply_markup=markup
+    )
+
+# Обработка текстового ввода ставки для кубика
+@bot.message_handler(func=lambda message: message.from_user.id in pending_dice and pending_dice[message.from_user.id].get('status') == 'waiting')
+def handle_dice_bet_input(message):
+    user_id = message.from_user.id
+    user = get_user(user_id)
+    money = user[2] if user else 0
+    sep = "- - - - - - - - - - - - - - - - - - -"
+    try:
+        bet = int(message.text.strip())
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ Введи число! Например: 200")
+        return
+    if bet < 50:
+        bot.send_message(message.chat.id, "❌ Минимальная ставка 💵50!")
+        return
+    if bet > money:
+        bot.send_message(message.chat.id, f"❌ Недостаточно средств! У тебя только 💵{money}")
+        return
+    spend_money(user_id, bet)
+    pending_dice[user_id] = {
+        'bet': bet,
+        'round': 1,
+        'accumulated': bet,
+        'status': 'playing'
+    }
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("🎲 Бросить", callback_data="dice_throw"),
+        InlineKeyboardButton("❌ Отмена",  callback_data="dice_cancel"),
+    )
+    bot.send_message(
+        message.chat.id,
+        f"🎲 – КУБИК - БОМБА – 💣\n{sep}\n"
+        f"Ставка: 💵 {bet}\n{sep}\n"
+        f"{dice_grid(1)}\n{sep}",
         reply_markup=markup
     )
 
@@ -1414,6 +1474,117 @@ def callback_slot_close(call):
         bot.delete_message(call.message.chat.id, call.message.message_id)
     except: pass
     bot.answer_callback_query(call.id)
+
+# --- Кубик-Бомба ---
+@bot.callback_query_handler(func=lambda call: call.data == 'casino_dice')
+def callback_casino_dice(call):
+    user_id = call.from_user.id
+    sep = "- - - - - - - - - - - - - - - - - - -"
+    pending_dice[user_id] = {'status': 'waiting'}
+    bot.send_message(
+        call.message.chat.id,
+        f"🎲 – КУБИК - БОМБА – 💣\n{sep}\n"
+        f"Напиши ставку 💵 денег которую хочешь поставить на игру и начать (мин. 50)."
+    )
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda call: call.data == 'dice_cancel')
+def callback_dice_cancel(call):
+    user_id = call.from_user.id
+    data = pending_dice.pop(user_id, None)
+    if data and isinstance(data.get('bet'), int):
+        add_money(user_id, data['bet'])
+        try:
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
+        bot.send_message(call.message.chat.id,
+            f"Игра отменена ❌\nВозвращённая ставка: +💵{data['bet']}")
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda call: call.data == 'dice_take')
+def callback_dice_take(call):
+    user_id = call.from_user.id
+    data = pending_dice.pop(user_id, None)
+    if not data:
+        bot.answer_callback_query(call.id, "❌ Игра не найдена!")
+        return
+    winnings = int(data['accumulated'])
+    add_money(user_id, winnings)
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except: pass
+    bot.send_message(
+        call.message.chat.id,
+        f"💰 Ты забрал выигрыш!\n\n+💵 {winnings}"
+    )
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda call: call.data == 'dice_throw')
+def callback_dice_throw(call):
+    user_id = call.from_user.id
+    data = pending_dice.get(user_id)
+    sep = "- - - - - - - - - - - - - - - - - - -"
+
+    if not data or data.get('status') != 'playing':
+        bot.answer_callback_query(call.id, "❌ Игра не найдена!")
+        return
+
+    bot.answer_callback_query(call.id)
+
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except: pass
+
+    # Отправляем кубик
+    dice_msg = bot.send_dice(call.message.chat.id, emoji="🎲")
+    dice_value = dice_msg.dice.value
+    time.sleep(3.5)  # Ждём анимацию кубика
+
+    current_round = data['round']
+    bet = data['bet']
+    multiplier = DICE_MULTIPLIERS[current_round]
+    accumulated = data['accumulated']
+
+    if dice_value >= 4:
+        # Победа в этом раунде
+        new_accumulated = int(accumulated * multiplier)
+        pending_dice[user_id]['accumulated'] = new_accumulated
+        pending_dice[user_id]['round'] = current_round + 1
+
+        if current_round == 10:
+            # Последний раунд — автоматически забираем
+            pending_dice.pop(user_id, None)
+            add_money(user_id, new_accumulated)
+            bot.send_message(
+                call.message.chat.id,
+                f"| Выпало: {dice_value} |\n\n"
+                f"🎉 10/10 раундов пройдено!\n\n"
+                f"💰 Автовыигрыш: +💵 {new_accumulated}\n\n"
+                f"{dice_grid(10, last_result=dice_value)}\n{sep}"
+            )
+        else:
+            markup = InlineKeyboardMarkup(row_width=2)
+            markup.add(
+                InlineKeyboardButton("🎲 Бросить", callback_data="dice_throw"),
+                InlineKeyboardButton("💵 Забрать", callback_data="dice_take"),
+            )
+            bot.send_message(
+                call.message.chat.id,
+                f"| Выпало: {dice_value} |\n\n"
+                f"💵 {accumulated} × {multiplier} = {new_accumulated}\n\n"
+                f"{dice_grid(current_round, last_result=dice_value)}\n{sep}",
+                reply_markup=markup
+            )
+    else:
+        # Проигрыш
+        pending_dice.pop(user_id, None)
+        bot.send_message(
+            call.message.chat.id,
+            f"| Выпало: {dice_value} |\n\n"
+            f"❌💥 Проигрыш\n\n"
+            f"- {bet} 💵\n\n"
+            f"{dice_grid(current_round, exploded=True)}\n{sep}"
+        )
 
 # ===== ЗАПУСК =====
 init_db()
