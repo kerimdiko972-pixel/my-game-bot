@@ -906,7 +906,22 @@ def cmd_shop(message):
     user_id = message.from_user.id
     username = message.from_user.username or message.from_user.first_name
     register_user(user_id, username)
-    bot.send_message(message.chat.id, "🛒--- МАГАЗИН ---🛒", reply_markup=shop_keyboard())
+    user = get_user(user_id)
+    money = user[2] if user else 0
+    seeds = user[4] if user else 0
+    bait  = user[5] if user else 0
+    eggs  = user[20] if user and len(user) > 20 else 0
+    sep = "– – – – – – – – – – – – – –"
+    bot.send_message(
+        message.chat.id,
+        f"🛒--- МАГАЗИН ---🛒\n{sep}\n"
+        f"💵 Денег: {money}\n"
+        f"🌱 Семян: {seeds}\n"
+        f"🪱 Наживок: {bait}\n"
+        f"🥚 Яиц: {eggs}\n"
+        f"{sep}",
+        reply_markup=shop_keyboard()
+    )
 
 @bot.message_handler(commands=['sell'])
 def cmd_sell(message):
