@@ -309,6 +309,14 @@ def init_db():
             c.execute(f'ALTER TABLE users ADD COLUMN {col} {col_type}')
         except: pass
 
+    # Добавляем новые слоты грядок если их меньше 10
+    try:
+        existing_users = c.execute('SELECT DISTINCT user_id FROM garden').fetchall()
+        for (uid,) in existing_users:
+            for slot in range(1, 11):
+                c.execute('INSERT OR IGNORE INTO garden (user_id, slot) VALUES (?,?)', (uid, slot))
+    except: pass
+
     conn.commit()
     conn.close()
     print("База данных инициализирована!")
@@ -333,7 +341,7 @@ def register_user(user_id, username):
     conn = sqlite3.connect('game.db')
     c = conn.cursor()
     c.execute('INSERT OR IGNORE INTO users (user_id, username) VALUES (?,?)', (user_id, username))
-    for slot in range(1, 7):
+    for slot in range(1, 11):
         c.execute('INSERT OR IGNORE INTO garden (user_id, slot) VALUES (?,?)', (user_id, slot))
     for slot in range(1, 5):
         c.execute('INSERT OR IGNORE INTO fishing (user_id, slot) VALUES (?,?)', (user_id, slot))
@@ -606,7 +614,7 @@ def garden_text(user_id):
 
 def garden_keyboard(user_id):
     slots = get_garden(user_id)
-    markup = InlineKeyboardMarkup(row_width=3)
+    markup = InlineKeyboardMarkup(row_width=5)
     buttons = []
     for slot, status, planted_at, vegetable in slots:
         if status == 'empty':
