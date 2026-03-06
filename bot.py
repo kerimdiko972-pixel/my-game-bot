@@ -1553,7 +1553,7 @@ def callback_dice_throw(call):
     # Отправляем кубик
     dice_msg = bot.send_dice(call.message.chat.id, emoji="🎲")
     dice_value = dice_msg.dice.value
-    time.sleep(3.5)  # Ждём анимацию кубика
+    time.sleep(6.0)  # Ждём анимацию кубика
 
     current_round = data['round']
     bet = data['bet']
