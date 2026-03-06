@@ -200,8 +200,8 @@ pending_dice = {}
 # Структура: {user_id: {'bet': int, 'round': int, 'multiplier': float, 'accumulated': int, 'status': str}}
 
 DICE_MULTIPLIERS = {
-    1: 1.3, 2: 1.4, 3: 1.5, 4: 1.6, 5: 1.7,
-    6: 1.8, 7: 1.9, 8: 2.0, 9: 2.1, 10: 2.2
+    1: 1.3, 2: 1.5, 3: 1.8, 4: 2.2, 5: 2.7,
+    6: 3.5, 7: 4.5, 8: 6.0, 9: 8.0, 10: 12.0
 }
 
 def dice_grid(current_round, last_result=None, exploded=False):
@@ -1560,19 +1560,28 @@ def callback_dice_throw(call):
     multiplier = DICE_MULTIPLIERS[current_round]
     accumulated = data['accumulated']
 
-    if dice_value >= 4:
+    if dice_value >= 3:
         # Победа в этом раунде
         new_accumulated = int(accumulated * multiplier)
+
+        # Если выпала 6 — бонус +10%
+        lucky = False
+        if dice_value == 6:
+            lucky = True
+            bonus = int(new_accumulated * 0.10)
+            new_accumulated += bonus
+
         pending_dice[user_id]['accumulated'] = new_accumulated
         pending_dice[user_id]['round'] = current_round + 1
 
+        lucky_text = "\n✨ СЧАСТЛИВЫЙ БРОСОК! +10% к выигрышу" if lucky else ""
+
         if current_round == 10:
-            # Последний раунд — автоматически забираем
             pending_dice.pop(user_id, None)
             add_money(user_id, new_accumulated)
             bot.send_message(
                 call.message.chat.id,
-                f"| Выпало: {dice_value} |\n\n"
+                f"| Выпало: {dice_value} |{lucky_text}\n\n"
                 f"🎉 10/10 раундов пройдено!\n\n"
                 f"💰 Автовыигрыш: +💵 {new_accumulated}\n\n"
                 f"{dice_grid(10, last_result=dice_value)}\n{sep}"
@@ -1585,13 +1594,13 @@ def callback_dice_throw(call):
             )
             bot.send_message(
                 call.message.chat.id,
-                f"| Выпало: {dice_value} |\n\n"
+                f"| Выпало: {dice_value} |{lucky_text}\n\n"
                 f"💵 {accumulated} × {multiplier} = {new_accumulated}\n\n"
                 f"{dice_grid(current_round, last_result=dice_value)}\n{sep}",
                 reply_markup=markup
             )
     else:
-        # Проигрыш
+        # Проигрыш при 1 или 2
         pending_dice.pop(user_id, None)
         bot.send_message(
             call.message.chat.id,
