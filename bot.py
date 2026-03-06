@@ -330,6 +330,13 @@ def spend_money(user_id, amount):
     conn.commit()
     conn.close()
 
+def add_money(user_id, amount):
+    conn = sqlite3.connect('game.db')
+    c = conn.cursor()
+    c.execute('UPDATE users SET money=money+? WHERE user_id=?', (amount, user_id))
+    conn.commit()
+    conn.close()
+
 def add_seeds(user_id, amount):
     conn = sqlite3.connect('game.db')
     c = conn.cursor()
@@ -774,7 +781,6 @@ def cmd_garden(message):
     conn.commit()
     conn.close()
 
-@bot.message_handler(commands=['bag'])
 @bot.message_handler(commands=['bag'])
 def cmd_bag(message):
     user_id = message.from_user.id
@@ -1391,6 +1397,13 @@ def callback_slot_spin(call):
             f"{result_text}\n\n💵 Баланс: {money_now}",
             reply_markup=markup
     )
+
+@bot.callback_query_handler(func=lambda call: call.data == 'slot_close')
+def callback_slot_close(call):
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except: pass
+    bot.answer_callback_query(call.id)
 
 # ===== ЗАПУСК =====
 init_db()
