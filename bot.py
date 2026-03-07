@@ -1837,13 +1837,17 @@ def end_battle(battle, winner_id, loser_id, winner_name, loser_name, chat_id, fo
 
     extra = "\n⏰ Противник не успел сделать ход — форфейт!" if forfeit else ""
 
-    send_to_both(battle, 
-        f"🏳️💥 СРАЖЕНИЕ ОКОНЧЕНО 💥🏳️\n\n"
-        f"🏆 @{winner_name} победил!{extra}\n"
-        f"Он выиграл: 💵 {prize}\n\n"
+    # Экранируем имена
+    w_name = winner_name.replace('_', '\\_').replace('*', '\\*')
+    l_name = loser_name.replace('_', '\\_').replace('*', '\\*')
+
+    send_to_both(battle,
+        f"🏆 СРАЖЕНИЕ ОКОНЧЕНО 🏆\n\n"
+        f"🥇 *@{w_name}* победил!{extra}\n"
+        f"💵 Выигрыш: *{prize}*\n\n"
         f"Получено опыта:\n"
-        f"🌟 @{winner_name}: +{winner_exp}\n"
-        f"🌟 @{loser_name}: +{loser_exp}",
+        f"🌟 @{w_name}: +{winner_exp}\n"
+        f"🌟 @{l_name}: +{loser_exp}",
         reply_markup=battle_close_keyboard()
     )
 
@@ -1909,8 +1913,23 @@ def process_battle_action(call, battle_id, action):
 
     # ── Защита ─────────────────────────────────────────────────────────────
     elif action == 'defend':
+        # Проверяем — уже есть щит?
+        already_shielded = shield_a if is_a else shield_b
+        if already_shielded:
+            bot.send_message(att_chat,
+                "🛡️ У тебя уже активен щит! Выбери другое действие.")
+            # Возвращаем кнопки обратно
+            send_to_both(battle,
+                battle_status_text(a_name, b_name, stake,
+                                   att_name, hp_a, hp_b, shield_a, shield_b),
+                reply_markup=battle_action_keyboard(battle_id),
+                parse_mode='Markdown'
+            )
+            return
+
         if is_a: shield_a = True
         else:    shield_b = True
+
         send_to_both(battle,
             f"🛡️ *@{att_name}* встаёт в защиту!\n"
             f"Следующий удар по нему будет уменьшен вдвое.",
