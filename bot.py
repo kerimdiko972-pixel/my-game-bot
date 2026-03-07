@@ -686,18 +686,6 @@ def run_flask():
 
 # ===== КОМАНДЫ =====
 
-@bot.middleware_handler(update_types=['message'])
-def save_private_chat(bot_instance, message):
-    if message.chat.type == 'private' and message.from_user:
-        try:
-            conn = get_conn()
-            c = conn.cursor()
-            c.execute('UPDATE users SET private_chat_id=%s WHERE user_id=%s',
-                      (message.chat.id, message.from_user.id))
-            conn.commit()
-            conn.close()
-        except: pass
-
 @bot.message_handler(commands=['start'])
 def cmd_start(message):
     user_id = message.from_user.id
