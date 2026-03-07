@@ -2096,91 +2096,72 @@ def cmd_blocked_in_battle(message):
 @bot.callback_query_handler(func=lambda call: call.data.startswith('battle_acc_'))
 def callback_battle_accept(call):
 
+    bot.answer_callback_query(call.id)
+
+    battle_id = call.data.replace("battle_acc_", "")
+    user_id = call.from_user.id
+
+    battle = get_battle(battle_id)
+    print("DEBUG battle:", battle)
+
+    if not battle or battle[6] != 'invited':
+        bot.send_message(call.message.chat.id, "❌ Приглашение уже недоступно")
+        return
+
+    if user_id != battle[3]:
+        bot.answer_callback_query(call.id, "❌ Это приглашение не для тебя!")
+        return
+
+    a_id, a_name = battle[1], battle[2]
+    b_id, b_name = battle[3], battle[4]
+    stake = battle[5]
+
+    chat_id_a = battle[12]
+    chat_id_b = battle[13]
+    imid = battle[14]
+
+    print("DEBUG chats:", chat_id_a, chat_id_b, imid)
+
+    user_a = get_user(a_id)
+    user_b = get_user(b_id)
+
+    if not user_a or user_a[2] < stake:
+        bot.send_message(call.message.chat.id, "❌ У первого игрока нет денег")
+        return
+
+    if not user_b or user_b[2] < stake:
+        bot.send_message(call.message.chat.id, "❌ У второго игрока нет денег")
+        return
+
+    spend_money(a_id, stake)
+    spend_money(b_id, stake)
+
     try:
-        bot.answer_callback_query(call.id)
+        bot.delete_message(chat_id_b, imid)
+    except:
+        pass
 
-        battle_id = call.data[len('battle_acc_'):]
-        user_id = call.from_user.id
+    turn_id = random.choice([a_id, b_id])
+    turn_name = a_name if turn_id == a_id else b_name
 
-        battle = get_battle(battle_id)
+    activate_battle(battle_id, turn_id)
 
-        print(f"DEBUG accept: battle={battle}")
+    battle = get_battle(battle_id)
 
-        if not battle or battle[6] != 'invited':
-            bot.answer_callback_query(call.id, "❌ Приглашение уже недоступно!")
-            return
-
-        if user_id != battle[3]:
-            bot.answer_callback_query(call.id, "❌ Это приглашение не для тебя!")
-            return
-
-        a_id   = battle[1]
-        a_name = battle[2]
-
-        b_id   = battle[3]
-        b_name = battle[4]
-
-        stake = battle[5]
-
-        chat_id_a = battle[12]
-        chat_id_b = battle[13]
-        imid = battle[14]
-
-        print(f"DEBUG: chat_id_a={chat_id_a}, chat_id_b={chat_id_b}, imid={imid}")
-
-        user_a = get_user(a_id)
-        user_b = get_user(b_id)
-
-        # Проверка денег игрока A
-        if not user_a or user_a[2] < stake:
-
-            cancel_battle(battle_id, a_id, b_id)
-
-            try:
-                bot.delete_message(chat_id_b, imid)
-            except:
-                pass
-
-            send_to_both(
-                battle,
-                f"⚠️ Бой отменён — у *{a_name}* недостаточно средств (нужно 💵{stake})",
-                parse_mode='Markdown'
-            )
-            return
-
-        # Проверка денег игрока B
-        if not user_b or user_b[2] < stake:
-
-            cancel_battle(battle_id, a_id, b_id)
-
-            try:
-                bot.delete_message(chat_id_b, imid)
-            except:
-                pass
-
-            send_to_both(
-                battle,
-                f"⚠️ Бой отменён — у *{b_name}* недостаточно средств (нужно 💵{stake})",
-                parse_mode='Markdown'
-            )
-            return
-
-        # Списываем деньги
-        spend_money(a_id, stake)
-        spend_money(b_id, stake)
-
-        try:
-            bot.delete_message(chat_id_b, imid)
-        except:
-            pass
-
-        battle = get_battle(battle_id)
-
-        send_to_both(
-            battle,
-            f"✅ *{b_name}* принял заявку на сражение!",
-            parse_mode='Markdown'
-        )
+    send_to_both(
+        battle,
+        battle_status_text(
+            a_name,
+            b_name,
+            stake,
+            turn_name,
+            BATTLE_HP,
+            BATTLE_HP,
+            False,
+            False
+        ),
+        reply_markup=battle_action_keyboard(battle_id)
+    )
 
         # Определяем первый ход
         turn_id = random.choice([a_id, b_id])
