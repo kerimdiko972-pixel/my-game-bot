@@ -1859,82 +1859,6 @@ def process_battle_action(call, battle_id, action):
         bot.answer_callback_query(call.id, "⏳ Сейчас не твой ход!")
         return
 
-    a_id      = battle['player_a_id'];  a_name = battle['player_a_name']
-    b_id      = battle['player_b_id'];  b_name = battle['player_b_name']
-    stake     = battle['stake']
-    hp_a      = battle['hp_a'];  hp_b   = battle['hp_b']
-    shield_a  = battle['shield_a']; shield_b = battle['shield_b']
-    chat_id   = battle['chat_id_a']
-
-    is_a      = (user_id == a_id)
-    att_name  = a_name if is_a else b_name
-    def_name  = b_name if is_a else a_name
-
-    bot.answer_callback_query(call.id)
-
-    # ── Атака ──────────────────────────────────────────────────────────────
-    if action == 'attack':
-        send_to_both(battle, f"🗡️ *@{att_name}* атакует!", parse_mode='Markdown')
-        dice_msg  = bot.send_dice(chat_id, emoji="🎲")
-        dice_val  = dice_msg.dice.value
-        time.sleep(4.5)
-
-        damage = dice_val
-        if is_a and shield_b:
-            damage = damage // 2; shield_b = False
-        elif not is_a and shield_a:
-            damage = damage // 2; shield_a = False
-
-        if is_a: hp_b = max(0, hp_b - damage)
-        else:    hp_a = max(0, hp_a - damage)
-
-        send_to_both(battle,
-            f"🗡️ *@{att_name}* атаковал на *{dice_val}* урона!\n"
-            f"❤️ {a_name}: {hp_a}/{BATTLE_HP} | {b_name}: {hp_b}/{BATTLE_HP}",
-            parse_mode='Markdown')
-
-    # ── Защита ─────────────────────────────────────────────────────────────
-    elif action == 'defend':
-        if is_a: shield_a = True
-        else:    shield_b = True
-        send_to_both(battle,
-            f"🛡️ *@{att_name}* встаёт в защиту!\n"
-            f"Следующий урон по нему будет уменьшен вдвое.",
-            parse_mode='Markdown')
-        send_to_both(battle,
-            f"🛡️ @{att_name} защищается — @{def_name}, действуй!",
-            parse_mode='Markdown')
-
-    # ── Крит ───────────────────────────────────────────────────────────────
-    elif action == 'crit':
-        send_to_both(battle,
-            f"💥 *@{att_name}* пытается нанести КРИТ-УДАР!", parse_mode='Markdown')
-        dice_msg = bot.send_dice(chat_id, emoji="🎲")
-        dice_val = dice_msg.dice.value
-        time.sleep(4.5)
-
-        if dice_val >= 5:
-            damage      = dice_val * 2
-            result_text = f"💥 ПОПАЛ! Выпало {dice_val} → урон *{damage}* (×2)"
-        else:
-            damage      = 0
-            result_text = f"💨 Промах! Выпало {dice_val} — мимо"
-
-        if damage > 0:
-            if is_a and shield_b:
-                damage = damage // 2; shield_b = False
-# ── Обработка действия ────────────────────────────────────────────────────────
-def process_battle_action(call, battle_id, action):
-    user_id = call.from_user.id
-    battle  = get_battle(battle_id)
-
-    if not battle or battle['state'] != 'active':
-        bot.answer_callback_query(call.id, "❌ Бой уже завершён!")
-        return
-    if user_id != battle['turn_player_id']:
-        bot.answer_callback_query(call.id, "⏳ Сейчас не твой ход!")
-        return
-
     a_id     = battle['player_a_id'];  a_name = battle['player_a_name']
     b_id     = battle['player_b_id'];  b_name = battle['player_b_name']
     stake    = battle['stake']
@@ -2018,15 +1942,107 @@ def process_battle_action(call, battle_id, action):
                 damage = damage // 2; shield_b = False; shield_hit = True
             elif not is_a and shield_a:
                 damage = damage // 2; shield_a = False; shield_hit = True
+# ── Обработка действия ────────────────────────────────────────────────────────
+def process_battle_action(call, battle_id, action):
+    user_id = call.from_user.id
+    battle  = get_battle(battle_id)
+
+    if not battle or battle['state'] != 'active':
+        bot.answer_callback_query(call.id, "❌ Бой уже завершён!")
+        return
+    if user_id != battle['turn_player_id']:
+        bot.answer_callback_query(call.id, "⏳ Сейчас не твой ход!")
+        return
+
+    a_id     = battle['player_a_id'];  a_name = battle['player_a_name']
+    b_id     = battle['player_b_id'];  b_name = battle['player_b_name']
+    stake    = battle['stake']
+    hp_a     = battle['hp_a'];  hp_b  = battle['hp_b']
+    shield_a = battle['shield_a']; shield_b = battle['shield_b']
+    chat_a   = battle['chat_id_a']
+    chat_b   = battle['chat_id_b']
+
+    is_a     = (user_id == a_id)
+    att_name = a_name if is_a else b_name
+    def_name = b_name if is_a else a_name
+    att_chat = chat_a if is_a else chat_b  # чат атакующего
+
+    bot.answer_callback_query(call.id)
+
+    # ── Атака ──────────────────────────────────────────────────────────────
+    if action == 'attack':
+        # 1. Объявление атаки — обоим
+        send_to_both(battle, f"🗡️ *@{att_name}* атакует!", parse_mode='Markdown')
+
+        # 2. Кубик — только атакующему
+        dice_msg = bot.send_dice(att_chat, emoji="🎲")
+        dice_val = dice_msg.dice.value
+        time.sleep(4.5)
+
+        # 3. Считаем урон
+        damage = dice_val
+        shield_text = ""
+        if is_a and shield_b:
+            damage = damage // 2; shield_b = False
+            shield_text = f"\n🛡️ Щит поглотил урон! Итого: *{damage}*"
+        elif not is_a and shield_a:
+            damage = damage // 2; shield_a = False
+            shield_text = f"\n🛡️ Щит поглотил урон! Итого: *{damage}*"
 
         if is_a: hp_b = max(0, hp_b - damage)
         else:    hp_a = max(0, hp_a - damage)
 
-        shield_text = f"\n🛡️ Щит поглотил часть урона! Итоговый урон: *{damage}*" if shield_hit else ""
+        # 4. Краткий результат — обоим
+        send_to_both(battle,
+            f"🗡️ *@{att_name}* атаковал на *{dice_val}* урона!{shield_text}",
+            parse_mode='Markdown')
+
+    # ── Защита ─────────────────────────────────────────────────────────────
+    elif action == 'defend':
+        if is_a: shield_a = True
+        else:    shield_b = True
+
+        # Краткое сообщение — обоим
+        send_to_both(battle,
+            f"🛡️ *@{att_name}* встаёт в защиту!\n"
+            f"Следующий удар по нему будет уменьшен вдвое.",
+            parse_mode='Markdown')
+
+    # ── Крит ───────────────────────────────────────────────────────────────
+    elif action == 'crit':
+        # 1. Объявление крита — обоим
+        send_to_both(battle,
+            f"💥 *@{att_name}* пытается нанести КРИТ-УДАР!", parse_mode='Markdown')
+
+        # 2. Кубик — только атакующему
+        dice_msg = bot.send_dice(att_chat, emoji="🎲")
+        dice_val = dice_msg.dice.value
+        time.sleep(4.5)
+
+        # 3. Считаем урон
+        if dice_val >= 5:
+            damage = dice_val * 2
+            crit_text = f"💥 ПОПАЛ! Выпало *{dice_val}* → урон *{damage}* (×2)"
+        else:
+            damage = 0
+            crit_text = f"💨 Промах! Выпало *{dice_val}* — мимо"
+
+        shield_text = ""
+        if damage > 0:
+            if is_a and shield_b:
+                damage = damage // 2; shield_b = False
+                shield_text = f"\n🛡️ Щит поглотил урон! Итого: *{damage}*"
+            elif not is_a and shield_a:
+                damage = damage // 2; shield_a = False
+                shield_text = f"\n🛡️ Щит поглотил урон! Итого: *{damage}*"
+
+        if is_a: hp_b = max(0, hp_b - damage)
+        else:    hp_a = max(0, hp_a - damage)
+
+        # 4. Краткий результат — обоим
         send_to_both(battle,
             f"💥 *@{att_name}* применил КРИТ-УДАР!\n"
-            f"{crit_text}{shield_text}\n"
-            f"❤️ {a_name}: {hp_a}/{BATTLE_HP} | {b_name}: {hp_b}/{BATTLE_HP}",
+            f"{crit_text}{shield_text}",
             parse_mode='Markdown')
 
     # ── Проверка смерти ────────────────────────────────────────────────────
@@ -2045,6 +2061,7 @@ def process_battle_action(call, battle_id, action):
     next_name = b_name if is_a else a_name
     update_battle_state(battle_id, next_id, hp_a, hp_b, shield_a, shield_b)
 
+    # 5. Основное сообщение с меню — обоим
     send_to_both(battle,
         battle_status_text(a_name, b_name, stake, next_name, hp_a, hp_b, shield_a, shield_b),
         reply_markup=battle_action_keyboard(battle_id),
