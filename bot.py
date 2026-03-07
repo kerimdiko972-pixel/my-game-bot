@@ -2069,11 +2069,16 @@ def cmd_battle(message):
         reply_markup=markup,
         parse_mode='Markdown'
     )
-    bot.send_message(message.chat.id,
-        f"✅ Приглашение отправлено *@{target_name}*!", parse_mode='Markdown')
-
-    create_battle(battle_id, user_id, username, b_id, b_name, stake,
-                  message.chat.id, b_chat_id, invite_msg.message_id)
+    try:
+        create_battle(battle_id, user_id, username, b_id, b_name, stake,
+                      message.chat.id, b_chat_id, invite_msg.message_id)
+        bot.send_message(message.chat.id,
+            f"✅ Приглашение отправлено *@{target_name}*!", parse_mode='Markdown')
+    except Exception as e:
+        print(f"ERROR create_battle: {e}")
+        active_battle_users.discard(user_id)
+        active_battle_users.discard(b_id)
+        bot.send_message(message.chat.id, "❌ Ошибка при создании боя, попробуй снова!")
 
 # Блокировать команды во время боя (кроме /battle, /start)
 BATTLE_ALLOWED_COMMANDS = {'/battle', '/start'}
