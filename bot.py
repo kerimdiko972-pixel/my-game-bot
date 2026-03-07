@@ -2158,29 +2158,26 @@ def callback_battle_accept(call):
         activate_battle(battle_id, turn_id)
         battle = get_battle(battle_id)
 
-        send_to_both(battle, f"✅ *{b_name}* принял заявку на сражение!", parse_mode='Markdown')
-
-        send_to_both(battle, f"✅ *{b_name}* принял заявку на сражение!", parse_mode='Markdown')
+        try:
+            send_to_both(battle, f"✅ *{b_name}* принял заявку на сражение!", parse_mode='Markdown')
+        except Exception as e:
+            print(f"ERROR send accepted msg: {e}")
+            import traceback; traceback.print_exc()
 
         print(f"DEBUG before status: chat_a={battle['chat_id_a']}, chat_b={battle['chat_id_b']}, turn={turn_name}")
-        
-        status_text = battle_status_text(a_name, b_name, stake, turn_name, BATTLE_HP, BATTLE_HP, False, False)
-        print(f"DEBUG status_text: {status_text}")
-        
-        keyboard = battle_action_keyboard(battle_id)
-        print(f"DEBUG keyboard: {keyboard}")
-        
-        send_to_both(
-            battle,
-            status_text,
-            reply_markup=keyboard,
-            parse_mode='Markdown'
-        )
-        print("DEBUG send_to_both done")
 
-    except Exception as e:
-        print(f"ERROR callback_battle_accept: {e}")
-        import traceback; traceback.print_exc()
+        try:
+            send_to_both(
+                battle,
+                battle_status_text(a_name, b_name, stake, turn_name, BATTLE_HP, BATTLE_HP, False, False),
+                reply_markup=battle_action_keyboard(battle_id),
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            print(f"ERROR send status: {e}")
+            import traceback; traceback.print_exc()
+        
+        print("DEBUG all done")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('battle_dec_'))
 def callback_battle_decline(call):
