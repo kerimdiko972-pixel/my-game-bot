@@ -9,7 +9,8 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask
 from config import BOT_TOKEN
 
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
+bot.enable_middleware()
 app = Flask(__name__)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -256,7 +257,8 @@ def init_db():
             dragonfish    INTEGER DEFAULT 0,
             treasure      INTEGER DEFAULT 0,
             eggs          INTEGER DEFAULT 0,
-            rank_index    INTEGER DEFAULT 0
+            rank_index    INTEGER DEFAULT 0,
+            private_chat_id BIGINT DEFAULT NULL
         )
     ''')
 
@@ -685,11 +687,31 @@ def run_flask():
 
 # ===== КОМАНДЫ =====
 
+@bot.middleware_handler(update_types=['message'])
+def save_private_chat(bot_instance, message):
+    if message.chat.type == 'private' and message.from_user:
+        try:
+            conn = get_conn()
+            c = conn.cursor()
+            c.execute('UPDATE users SET private_chat_id=%s WHERE user_id=%s',
+                      (message.chat.id, message.from_user.id))
+            conn.commit()
+            conn.close()
+        except: pass
+
 @bot.message_handler(commands=['start'])
 def cmd_start(message):
     user_id = message.from_user.id
     username = message.from_user.username or message.from_user.first_name
     register_user(user_id, username)
+    # Сохраняем личный chat_id если это личка
+    if message.chat.type == 'private':
+        conn = get_conn()
+        c = conn.cursor()
+        c.execute('UPDATE users SET private_chat_id=%s WHERE user_id=%s',
+                  (message.chat.id, user_id))
+        conn.commit()
+        conn.close()
     bot.send_message(message.chat.id,
         f"Привет, {message.from_user.first_name}! 👋\n\n"
         "Открой меню команд, чтобы узнать что тут есть.")
@@ -1631,7 +1653,8 @@ def init_battle_tables():
             hp_b            INTEGER DEFAULT 20,
             shield_a        BOOLEAN DEFAULT FALSE,
             shield_b        BOOLEAN DEFAULT FALSE,
-            chat_id         BIGINT,
+            chat_id_a       BIGINT,
+            chat_id_b       BIGINT,
             invite_msg_id   BIGINT DEFAULT NULL,
             invited_at      TEXT,
             last_action_at  TEXT DEFAULT NULL,
@@ -1671,15 +1694,15 @@ def get_active_battle_for_user(user_id):
     conn.close()
     return row
 
-def create_battle(battle_id, a_id, a_name, b_id, b_name, stake, chat_id, invite_msg_id):
+def create_battle(battle_id, a_id, a_name, b_id, b_name, stake, chat_id_a, chat_id_b, invite_msg_id):
     conn = get_conn()
     c = conn.cursor()
     now = datetime.now().isoformat()
     c.execute('''INSERT INTO battles
                  (id, player_a_id, player_a_name, player_b_id, player_b_name,
-                  stake, state, chat_id, invite_msg_id, invited_at)
-                 VALUES (%s,%s,%s,%s,%s,%s,'invited',%s,%s,%s)''',
-              (battle_id, a_id, a_name, b_id, b_name, stake, chat_id, invite_msg_id, now))
+                  stake, state, chat_id_a, chat_id_b, invite_msg_id, invited_at)
+                 VALUES (%s,%s,%s,%s,%s,%s,'invited',%s,%s,%s,%s)''',
+              (battle_id, a_id, a_name, b_id, b_name, stake, chat_id_a, chat_id_b, invite_msg_id, now))
     conn.commit()
     conn.close()
     active_battle_users.add(a_id)
@@ -1755,6 +1778,17 @@ def battle_close_keyboard():
     markup.add(InlineKeyboardButton("❌ Закрыть", callback_data="battle_close"))
     return markup
 
+def send_to_both(battle, text, reply_markup=None, parse_mode='Markdown'):
+    chat_a = battle[12]
+    chat_b = battle[13]
+    try:
+        bot.send_message(chat_a, text, reply_markup=reply_markup, parse_mode=parse_mode)
+    except: pass
+    if chat_b and chat_b != chat_a:
+        try:
+            bot.send_message(chat_b, text, reply_markup=reply_markup, parse_mode=parse_mode)
+        except: pass
+
 # ── Завершение боя ────────────────────────────────────────────────────────────
 def end_battle(battle, winner_id, loser_id, winner_name, loser_name, chat_id, forfeit=False):
     battle_id = battle[0]
@@ -1775,16 +1809,14 @@ def end_battle(battle, winner_id, loser_id, winner_name, loser_name, chat_id, fo
 
     extra = "\n⏰ Противник не успел сделать ход — форфейт!" if forfeit else ""
 
-    bot.send_message(
-        chat_id,
+    send_to_both(battle, 
         f"🏳️💥 СРАЖЕНИЕ ОКОНЧЕНО 💥🏳️\n\n"
         f"🏆 @{winner_name} победил!{extra}\n"
         f"Он выиграл: 💵 {prize}\n\n"
         f"Получено опыта:\n"
         f"🌟 @{winner_name}: +{winner_exp}\n"
         f"🌟 @{loser_name}: +{loser_exp}",
-        reply_markup=battle_close_keyboard(),
-        parse_mode='Markdown'
+        reply_markup=battle_close_keyboard()
     )
 
 # ── Обработка действия ────────────────────────────────────────────────────────
@@ -1814,7 +1846,7 @@ def process_battle_action(call, battle_id, action):
 
     # ── Атака ──────────────────────────────────────────────────────────────
     if action == 'attack':
-        bot.send_message(chat_id, f"🗡️ *@{att_name}* атакует!", parse_mode='Markdown')
+        send_to_both(battle, f"🗡️ *@{att_name}* атакует!", parse_mode='Markdown')
         dice_msg  = bot.send_dice(chat_id, emoji="🎲")
         dice_val  = dice_msg.dice.value
         time.sleep(4.5)
@@ -1828,7 +1860,7 @@ def process_battle_action(call, battle_id, action):
         if is_a: hp_b = max(0, hp_b - damage)
         else:    hp_a = max(0, hp_a - damage)
 
-        bot.send_message(chat_id,
+        send_to_both(battle,
             f"🗡️ *@{att_name}* атаковал на *{dice_val}* урона!\n"
             f"❤️ {a_name}: {hp_a}/{BATTLE_HP} | {b_name}: {hp_b}/{BATTLE_HP}",
             parse_mode='Markdown')
@@ -1837,17 +1869,17 @@ def process_battle_action(call, battle_id, action):
     elif action == 'defend':
         if is_a: shield_a = True
         else:    shield_b = True
-        bot.send_message(chat_id,
+        send_to_both(battle,
             f"🛡️ *@{att_name}* встаёт в защиту!\n"
             f"Следующий урон по нему будет уменьшен вдвое.",
             parse_mode='Markdown')
-        bot.send_message(chat_id,
+        send_to_both(battle,
             f"🛡️ @{att_name} защищается — @{def_name}, действуй!",
             parse_mode='Markdown')
 
     # ── Крит ───────────────────────────────────────────────────────────────
     elif action == 'crit':
-        bot.send_message(chat_id,
+        send_to_both(battle,
             f"💥 *@{att_name}* пытается нанести КРИТ-УДАР!", parse_mode='Markdown')
         dice_msg = bot.send_dice(chat_id, emoji="🎲")
         dice_val = dice_msg.dice.value
@@ -1869,7 +1901,7 @@ def process_battle_action(call, battle_id, action):
         if is_a: hp_b = max(0, hp_b - damage)
         else:    hp_a = max(0, hp_a - damage)
 
-        bot.send_message(chat_id,
+        send_to_both(battle,
             f"💥 *@{att_name}* применил КРИТ-УДАР: {result_text}\n"
             f"❤️ {a_name}: {hp_a}/{BATTLE_HP} | {b_name}: {hp_b}/{BATTLE_HP}",
             parse_mode='Markdown')
@@ -1890,8 +1922,7 @@ def process_battle_action(call, battle_id, action):
     next_name = b_name if is_a else a_name
     update_battle_state(battle_id, next_id, hp_a, hp_b, shield_a, shield_b)
 
-    bot.send_message(
-        chat_id,
+    send_to_both(battle,
         battle_status_text(a_name, b_name, stake, next_name, hp_a, hp_b, shield_a, shield_b),
         reply_markup=battle_action_keyboard(battle_id),
         parse_mode='Markdown'
@@ -1993,15 +2024,20 @@ def cmd_battle(message):
         bot.send_message(message.chat.id, f"❌ Игрок @{target_name} не найден!")
         return
 
-    b_id   = user_b[0]
-    b_name = user_b[1]
+    b_id      = user_b[0]
+    b_name    = user_b[1]
+    b_chat_id = user_b[22] if len(user_b) > 22 else None  # private_chat_id
 
     if b_id == user_id:
         bot.send_message(message.chat.id, "❌ Нельзя вызвать самого себя!")
         return
-
     if b_id in active_battle_users:
         bot.send_message(message.chat.id, f"❌ Игрок @{target_name} уже в сражении!")
+        return
+    if not b_chat_id:
+        bot.send_message(message.chat.id,
+            f"❌ Игрок @{target_name} ещё не написал боту в личку! "
+            f"Попроси его написать /start боту напрямую.")
         return
 
     battle_id = _uuid.uuid4().hex[:8]
@@ -2011,15 +2047,19 @@ def cmd_battle(message):
         InlineKeyboardButton("Принять ⚔️",   callback_data=f"battle_acc_{battle_id}"),
         InlineKeyboardButton("Отказаться ❌", callback_data=f"battle_dec_{battle_id}"),
     )
+    # Отправляем приглашение игроку B в его личку
     invite_msg = bot.send_message(
-        message.chat.id,
-        f"⚔️ Игрок *{username}* приглашает *@{target_name}* на битву ⚔️\n\n"
+        b_chat_id,
+        f"⚔️ Игрок *{username}* приглашает вас на битву ⚔️\n\n"
         f"Ставка: 💵 *{stake}*",
         reply_markup=markup,
         parse_mode='Markdown'
     )
+    bot.send_message(message.chat.id,
+        f"✅ Приглашение отправлено *@{target_name}*!", parse_mode='Markdown')
+
     create_battle(battle_id, user_id, username, b_id, b_name, stake,
-                  message.chat.id, invite_msg.message_id)
+                  message.chat.id, b_chat_id, invite_msg.message_id)
 
 # Блокировать команды во время боя (кроме /battle, /start)
 BATTLE_ALLOWED_COMMANDS = {'/battle', '/start'}
@@ -2088,13 +2128,13 @@ def callback_battle_accept(call):
     turn_name = a_name if turn_id == a_id else b_name
 
     activate_battle(battle_id, turn_id)
+    battle_updated = get_battle(battle_id)
 
-    bot.send_message(
-        chat_id,
+    send_to_both(
+        battle_updated,
         battle_status_text(a_name, b_name, stake, turn_name,
                            BATTLE_HP, BATTLE_HP, False, False),
         reply_markup=battle_action_keyboard(battle_id),
-        parse_mode='Markdown'
     )
     bot.answer_callback_query(call.id)
 
