@@ -2154,9 +2154,11 @@ def callback_battle_accept(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith('battle_acc_'))
 def callback_battle_accept(call):
     try:
+        print(f"RAW call.data: '{call.data}'")
         battle_id = call.data.replace("battle_acc_", "")
         user_id = call.from_user.id
         battle = get_battle(battle_id)
+        print(f"battle_id extracted: '{battle_id}'")
 
         print("DEBUG battle:", battle)
 
