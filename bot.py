@@ -2091,9 +2091,6 @@ def cmd_blocked_in_battle(message):
     bot.send_message(message.chat.id,
         "⚔️ Ты сейчас в сражении!\nЗаверши бой прежде чем использовать другие команды.")
 
-bot.send_message(chat_id_a, "⚔️ Бой начался!")
-bot.send_message(chat_id_b, "⚔️ Бой начался!")
-
 # ── КОЛБЭКИ БИТВЫ ─────────────────────────────────────────────────────────────
 @bot.callback_query_handler(func=lambda call: call.data.startswith('battle_acc_'))
 def callback_battle_accept(call):
