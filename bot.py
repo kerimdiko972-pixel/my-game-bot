@@ -2095,73 +2095,74 @@ def cmd_blocked_in_battle(message):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('battle_acc_'))
 def callback_battle_accept(call):
-    try:
-        battle_id = call.data[len('battle_acc_'):]
-        user_id   = call.from_user.id
-        battle    = get_battle(battle_id)
+    bot.answer_callback_query(call.id)
+    battle_id = call.data[len('battle_acc_'):]
+    user_id   = call.from_user.id
+    battle    = get_battle(battle_id)
 
-        print(f"DEBUG accept: battle={battle}")  # добавь это
+    print(f"DEBUG accept: battle={battle}")  # добавь это
 
-        if not battle or battle[6] != 'invited':
-            bot.answer_callback_query(call.id, "❌ Приглашение уже недоступно!")
-            return
-        if user_id != battle[3]:
-            bot.answer_callback_query(call.id, "❌ Это приглашение не для тебя!")
-            return
+    if not battle or battle[6] != 'invited':
+        bot.answer_callback_query(call.id, "❌ Приглашение уже недоступно!")
+        return
+    if user_id != battle[3]:
+        bot.answer_callback_query(call.id, "❌ Это приглашение не для тебя!")
+        return
 
-        a_id   = battle[1]; a_name = battle[2]
-        b_id   = battle[3]; b_name = battle[4]
-        stake  = battle[5]
-        chat_id_a = battle[12]; chat_id_b = battle[13]; imid = battle[14]
+    a_id   = battle[1]; a_name = battle[2]
+    b_id   = battle[3]; b_name = battle[4]
+    stake  = battle[5]
+    chat_id_a = battle[12]; chat_id_b = battle[13]; imid = battle[14]
 
-        print(f"DEBUG: chat_id_a={chat_id_a}, chat_id_b={chat_id_b}, imid={imid}")
+    print(f"DEBUG: chat_id_a={chat_id_a}, chat_id_b={chat_id_b}, imid={imid}")
 
-        user_a = get_user(a_id)
-        user_b = get_user(b_id)
+    user_a = get_user(a_id)
+    user_b = get_user(b_id)
 
-        if not user_a or user_a[2] < stake:
-            cancel_battle(battle_id, a_id, b_id)
-            try: bot.delete_message(chat_id_b, imid)
-            except: pass
-            send_to_both(battle,
-                f"⚠️ Бой отменён — у *{a_name}* недостаточно средств (нужно 💵{stake})",
-                parse_mode='Markdown')
-            bot.answer_callback_query(call.id)
-            return
-
-        if not user_b or user_b[2] < stake:
-            cancel_battle(battle_id, a_id, b_id)
-            try: bot.delete_message(chat_id_b, imid)
-            except: pass
-            send_to_both(battle,
-                f"⚠️ Бой отменён — у *{b_name}* недостаточно средств (нужно 💵{stake})",
-                parse_mode='Markdown')
-            bot.answer_callback_query(call.id)
-            return
-
-        spend_money(a_id, stake)
-        spend_money(b_id, stake)
-
+    if not user_a or user_a[2] < stake:
+        cancel_battle(battle_id, a_id, b_id)
         try: bot.delete_message(chat_id_b, imid)
         except: pass
-
         send_to_both(battle,
-            f"✅ *{b_name}* принял заявку на сражение!",
+            f"⚠️ Бой отменён — у *{a_name}* недостаточно средств (нужно 💵{stake})",
             parse_mode='Markdown')
-
-        turn_id   = random.choice([a_id, b_id])
-        turn_name = a_name if turn_id == a_id else b_name
-
-        activate_battle(battle_id, turn_id)
-        battle_updated = get_battle(battle_id)
-
-        send_to_both(
-            battle_updated,
-            battle_status_text(a_name, b_name, stake, turn_name,
-                               BATTLE_HP, BATTLE_HP, False, False),
-            reply_markup=battle_action_keyboard(battle_id),
-        )
         bot.answer_callback_query(call.id)
+        return
+
+    if not user_b or user_b[2] < stake:
+        cancel_battle(battle_id, a_id, b_id)
+         try: bot.delete_message(chat_id_b, imid)
+          except: pass
+          send_to_both(battle,
+            f"⚠️ Бой отменён — у *{b_name}* недостаточно средств (нужно 💵{stake})",
+            parse_mode='Markdown')
+          bot.answer_callback_query(call.id)
+          return
+
+     spend_money(a_id, stake)
+     spend_money(b_id, stake)
+
+    try: bot.delete_message(chat_id_b, imid)
+     except: pass
+
+      battle = get_battle(battle_id)
+    send_to_both(battle,
+           f"✅ *{b_name}* принял заявку на сражение!",
+         parse_mode='Markdown')
+
+    turn_id   = random.choice([a_id, b_id])
+    turn_name = a_name if turn_id == a_id else b_name
+
+     activate_battle(battle_id, turn_id)
+    battle_updated = get_battle(battle_id)
+
+    send_to_both(
+        battle_updated,
+        battle_status_text(a_name, b_name, stake, turn_name,
+                               BATTLE_HP, BATTLE_HP, False, False),
+        reply_markup=battle_action_keyboard(battle_id),
+    )
+      bot.answer_callback_query(call.id)
 
     except Exception as e:
         print(f"ERROR callback_battle_accept: {e}")
