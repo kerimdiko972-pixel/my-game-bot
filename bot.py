@@ -673,11 +673,11 @@ def run_bot():
             bot.polling(non_stop=True, skip_pending=True, timeout=30)
         except telebot.apihelper.ApiTelegramException as e:
             if '409' in str(e):
-                print("Конфликт! Удаляю webhook и жду 10 сек...")
+                print("Конфликт! Удаляю webhook и жду 30 сек...")
                 try:
                     bot.delete_webhook(drop_pending_updates=True)
                 except: pass
-                time.sleep(10)
+                time.sleep(30)
             else:
                 print(f"Ошибка API: {e}")
                 time.sleep(5)
@@ -2219,7 +2219,7 @@ init_db()
 init_battle_tables()
 
 bot.delete_webhook(drop_pending_updates=True)
-time.sleep(3)
+time.sleep(10)
 print("Бот запущен!")
 
 threading.Thread(target=garden_checker, daemon=True).start()
