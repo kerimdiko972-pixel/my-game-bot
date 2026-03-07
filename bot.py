@@ -2112,7 +2112,6 @@ def callback_battle_accept(call):
         user_id = call.from_user.id
         battle = get_battle(battle_id)
         print(f"battle_id extracted: '{battle_id}'")
-
         print("DEBUG battle:", battle)
 
         if not battle or battle['state'] != 'invited':
@@ -2149,8 +2148,10 @@ def callback_battle_accept(call):
         spend_money(a_id, stake)
         spend_money(b_id, stake)
 
-        try: bot.delete_message(chat_id_b, imid)
-        except: pass
+        try:
+            bot.delete_message(chat_id_b, imid)
+        except:
+            pass
 
         turn_id = random.choice([a_id, b_id])
         turn_name = a_name if turn_id == a_id else b_name
@@ -2158,28 +2159,22 @@ def callback_battle_accept(call):
         activate_battle(battle_id, turn_id)
         battle = get_battle(battle_id)
 
-        try:
-            send_to_both(battle, f"✅ *{b_name}* принял заявку на сражение!", parse_mode='Markdown')
-        except Exception as e:
-            print(f"ERROR send accepted msg: {e}")
-            import traceback; traceback.print_exc()
-
         print(f"DEBUG before status: chat_a={battle['chat_id_a']}, chat_b={battle['chat_id_b']}, turn={turn_name}")
 
-        try:
-            send_to_both(
-                battle,
-                battle_status_text(a_name, b_name, stake, turn_name, BATTLE_HP, BATTLE_HP, False, False),
-                reply_markup=battle_action_keyboard(battle_id),
-                parse_mode='Markdown'
-            )
-        except Exception as e:
-            print(f"ERROR send status: {e}")
-            import traceback; traceback.print_exc()
-        
+        bot.send_message(battle['chat_id_a'], f"✅ *{b_name}* принял заявку на сражение!", parse_mode='Markdown')
+        if battle['chat_id_b'] and battle['chat_id_b'] != battle['chat_id_a']:
+            bot.send_message(battle['chat_id_b'], f"✅ *{b_name}* принял заявку на сражение!", parse_mode='Markdown')
+
+        status = battle_status_text(a_name, b_name, stake, turn_name, BATTLE_HP, BATTLE_HP, False, False)
+        keyboard = battle_action_keyboard(battle_id)
+
+        bot.send_message(battle['chat_id_a'], status, reply_markup=keyboard, parse_mode='Markdown')
+        if battle['chat_id_b'] and battle['chat_id_b'] != battle['chat_id_a']:
+            bot.send_message(battle['chat_id_b'], status, reply_markup=keyboard, parse_mode='Markdown')
+
         print("DEBUG all done")
 
-        except Exception as e:
+    except Exception as e:
         print(f"ERROR callback_battle_accept: {e}")
         import traceback; traceback.print_exc()
 
