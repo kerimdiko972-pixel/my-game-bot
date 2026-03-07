@@ -1653,6 +1653,25 @@ def init_battle_tables():
             finished_at     TEXT DEFAULT NULL
         )
     ''')
+
+    # Мигрируем старую таблицу если нужно
+    try:
+        c.execute("ALTER TABLE battles ADD COLUMN chat_id_a BIGINT")
+        conn.commit()
+    except: pass
+    try:
+        c.execute("ALTER TABLE battles ADD COLUMN chat_id_b BIGINT")
+        conn.commit()
+    except: pass
+    try:
+        c.execute("UPDATE battles SET chat_id_a = chat_id WHERE chat_id_a IS NULL")
+        conn.commit()
+    except: pass
+    try:
+        c.execute("ALTER TABLE battles DROP COLUMN IF EXISTS chat_id")
+        conn.commit()
+    except: pass
+
     # Восстановить active_battle_users после перезапуска
     c.execute("SELECT player_a_id, player_b_id FROM battles WHERE state IN ('invited','active')")
     rows = c.fetchall()
