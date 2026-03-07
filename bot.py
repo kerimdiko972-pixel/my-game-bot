@@ -2106,52 +2106,6 @@ def cmd_blocked_in_battle(message):
 # ── КОЛБЭКИ БИТВЫ ─────────────────────────────────────────────────────────────
 @bot.callback_query_handler(func=lambda call: call.data.startswith('battle_acc_'))
 def callback_battle_accept(call):
-
-    bot.answer_callback_query(call.id)
-
-    battle_id = call.data.replace("battle_acc_", "")
-    user_id = call.from_user.id
-
-    battle = get_battle(battle_id)
-    print("DEBUG battle:", battle)
-
-    if not battle or battle['state'] != 'invited':
-        bot.send_message(call.message.chat.id, "❌ Приглашение уже недоступно")
-        return
-
-    if user_id != battle['player_b_id']:
-        bot.answer_callback_query(call.id, "❌ Это приглашение не для тебя!")
-        return
-
-    bot.answer_callback_query(call.id)
-
-    a_id, a_name = battle['player_a_id'], battle['player_a_name']
-    b_id, b_name = battle['player_b_id'], battle['player_b_name']
-    stake = battle['stake']
-
-    chat_id_a = battle['chat_id_a']
-    chat_id_b = battle['chat_id_b']
-    imid = battle['invite_msg_id']
-
-    print("DEBUG chats:", chat_id_a, chat_id_b, imid)
-
-    user_a = get_user(a_id)
-    user_b = get_user(b_id)
-
-    if not user_a or user_a[2] < stake:
-        bot.send_message(call.message.chat.id, "❌ У первого игрока нет денег")
-        return
-
-    if not user_b or user_b[2] < stake:
-        bot.send_message(call.message.chat.id, "❌ У второго игрока нет денег")
-        return
-
-    # списываем деньги
-    spend_money(a_id, stake)
-    spend_money(b_id, stake)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('battle_acc_'))
-def callback_battle_accept(call):
     try:
         print(f"RAW call.data: '{call.data}'")
         battle_id = call.data.replace("battle_acc_", "")
