@@ -2160,11 +2160,23 @@ def callback_battle_accept(call):
 
         send_to_both(battle, f"✅ *{b_name}* принял заявку на сражение!", parse_mode='Markdown')
 
+        send_to_both(battle, f"✅ *{b_name}* принял заявку на сражение!", parse_mode='Markdown')
+
+        print(f"DEBUG before status: chat_a={battle['chat_id_a']}, chat_b={battle['chat_id_b']}, turn={turn_name}")
+        
+        status_text = battle_status_text(a_name, b_name, stake, turn_name, BATTLE_HP, BATTLE_HP, False, False)
+        print(f"DEBUG status_text: {status_text}")
+        
+        keyboard = battle_action_keyboard(battle_id)
+        print(f"DEBUG keyboard: {keyboard}")
+        
         send_to_both(
             battle,
-            battle_status_text(a_name, b_name, stake, turn_name, BATTLE_HP, BATTLE_HP, False, False),
-            reply_markup=battle_action_keyboard(battle_id)
+            status_text,
+            reply_markup=keyboard,
+            parse_mode='Markdown'
         )
+        print("DEBUG send_to_both done")
 
     except Exception as e:
         print(f"ERROR callback_battle_accept: {e}")
