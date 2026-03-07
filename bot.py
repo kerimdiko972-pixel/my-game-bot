@@ -2092,7 +2092,6 @@ def cmd_blocked_in_battle(message):
         "⚔️ Ты сейчас в сражении!\nЗаверши бой прежде чем использовать другие команды.")
 
 # ── КОЛБЭКИ БИТВЫ ─────────────────────────────────────────────────────────────
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith('battle_acc_'))
 def callback_battle_accept(call):
 
@@ -2133,6 +2132,7 @@ def callback_battle_accept(call):
         bot.send_message(call.message.chat.id, "❌ У второго игрока нет денег")
         return
 
+    # списываем деньги
     spend_money(a_id, stake)
     spend_money(b_id, stake)
 
@@ -2141,12 +2141,19 @@ def callback_battle_accept(call):
     except:
         pass
 
+    # определяем первый ход
     turn_id = random.choice([a_id, b_id])
     turn_name = a_name if turn_id == a_id else b_name
 
     activate_battle(battle_id, turn_id)
 
     battle = get_battle(battle_id)
+
+    send_to_both(
+        battle,
+        f"✅ *{b_name}* принял заявку на сражение!",
+        parse_mode='Markdown'
+    )
 
     send_to_both(
         battle,
@@ -2162,29 +2169,6 @@ def callback_battle_accept(call):
         ),
         reply_markup=battle_action_keyboard(battle_id)
     )
-
-        # Определяем первый ход
-        turn_id = random.choice([a_id, b_id])
-        turn_name = a_name if turn_id == a_id else b_name
-
-        activate_battle(battle_id, turn_id)
-
-        battle_updated = get_battle(battle_id)
-
-        send_to_both(
-            battle_updated,
-            battle_status_text(
-                a_name,
-                b_name,
-                stake,
-                turn_name,
-                BATTLE_HP,
-                BATTLE_HP,
-                False,
-                False
-            ),
-            reply_markup=battle_action_keyboard(battle_id)
-        )
 
     except Exception as e:
         print(f"ERROR callback_battle_accept: {e}")
