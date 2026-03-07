@@ -1628,7 +1628,7 @@ BATTLE_HP = 20
 active_battle_users = set()
 
 # Глобальный lock — защищает от гонки между battle_checker и callback-хэндлерами
-_battle_lock = threading.Lock() на ход
+_battle_lock = threading.Lock()
 BATTLE_HP = 20
 
 # In-memory множество user_id кто сейчас в бою (для быстрой проверки блокировки)
