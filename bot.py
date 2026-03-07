@@ -299,6 +299,11 @@ def init_db():
 
     # Добавляем новые слоты грядок если их меньше 10
     try:
+        c.execute("ALTER TABLE users ADD COLUMN private_chat_id BIGINT DEFAULT NULL")
+        conn.commit()
+    except: pass
+
+    try:
         c.execute('SELECT DISTINCT user_id FROM garden')
         existing_users = c.fetchall()
         for (uid,) in existing_users:
@@ -1931,7 +1936,7 @@ def battle_checker():
 
             for b in expired_invites:
                 bid   = b[0]; a_id = b[1]; a_name = b[2]; b_id = b[3]
-                cid   = b[12]; imid = b[13]
+                cid   = b[12]; imid = b[14]
                 cancel_battle(bid, a_id, b_id)
                 try:
                     if imid: bot.delete_message(cid, imid)
@@ -2076,7 +2081,7 @@ def callback_battle_accept(call):
 
     a_id   = battle[1]; a_name = battle[2]
     b_id   = battle[3]; b_name = battle[4]
-    stake  = battle[5]; chat_id = battle[12]; imid = battle[13]
+    stake  = battle[5]; chat_id_a = battle[12]; chat_id_b = battle[13]; imid = battle[14]
 
     user_a = get_user(a_id)
     user_b = get_user(b_id)
@@ -2085,7 +2090,7 @@ def callback_battle_accept(call):
         cancel_battle(battle_id, a_id, b_id)
         try: bot.delete_message(chat_id, imid)
         except: pass
-        bot.send_message(chat_id,
+        send_to_both(battle,
             f"⚠️ Бой отменён — у *{a_name}* недостаточно средств (нужно 💵{stake})",
             parse_mode='Markdown')
         bot.answer_callback_query(call.id)
@@ -2095,7 +2100,7 @@ def callback_battle_accept(call):
         cancel_battle(battle_id, a_id, b_id)
         try: bot.delete_message(chat_id, imid)
         except: pass
-        bot.send_message(chat_id,
+        send_to_both(battle,
             f"⚠️ Бой отменён — у *{b_name}* недостаточно средств (нужно 💵{stake})",
             parse_mode='Markdown')
         bot.answer_callback_query(call.id)
@@ -2107,7 +2112,7 @@ def callback_battle_accept(call):
     try: bot.delete_message(chat_id, imid)
     except: pass
 
-    bot.send_message(chat_id,
+    send_to_both(battle,
         f"✅ *{b_name}* принял заявку на сражение!",
         parse_mode='Markdown')
 
@@ -2140,13 +2145,13 @@ def callback_battle_decline(call):
 
     a_id   = battle[1]; a_name = battle[2]
     b_id   = battle[3]; b_name = battle[4]
-    chat_id = battle[12]; imid = battle[13]
+    chat_id_a = battle[12]; imid = battle[14]
 
     cancel_battle(battle_id, a_id, b_id)
-    try: bot.delete_message(chat_id, imid)
+    try: bot.delete_message(chat_id_a, imid)
     except: pass
 
-    bot.send_message(chat_id,
+    send_to_both(battle,
         f"❌ *{b_name}* отказался участвовать в битве с *{a_name}*",
         parse_mode='Markdown')
     bot.answer_callback_query(call.id)
