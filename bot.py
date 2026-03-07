@@ -2150,7 +2150,6 @@ def callback_battle_accept(call):
     spend_money(a_id, stake)
     spend_money(b_id, stake)
 
-    try:
 @bot.callback_query_handler(func=lambda call: call.data.startswith('battle_acc_'))
 def callback_battle_accept(call):
     try:
