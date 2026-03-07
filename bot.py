@@ -9,8 +9,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask
 from config import BOT_TOKEN
 
-bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
-bot.enable_middleware()
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False, use_class_middlewares=True)
 app = Flask(__name__)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
