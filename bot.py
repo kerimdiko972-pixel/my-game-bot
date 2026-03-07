@@ -2170,10 +2170,6 @@ def callback_battle_accept(call):
         reply_markup=battle_action_keyboard(battle_id)
     )
 
-print("DEBUG battle_updated:", battle_updated)
-print("DEBUG chat_id_a:", chat_id_a)
-print("DEBUG chat_id_b:", chat_id_b)
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith('battle_dec_'))
 def callback_battle_decline(call):
     try:
