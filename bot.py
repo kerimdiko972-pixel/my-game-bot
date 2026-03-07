@@ -1773,6 +1773,10 @@ SEP_B = "– – – – – – – – – – – – – – – –"
 def battle_status_text(a_name, b_name, stake, turn_name, hp_a, hp_b, shield_a, shield_b):
     sh_a = " 🛡️" if shield_a else ""
     sh_b = " 🛡️" if shield_b else ""
+    # Экранируем имена от markdown символов
+    a_name    = a_name.replace('_', '\\_').replace('*', '\\*')
+    b_name    = b_name.replace('_', '\\_').replace('*', '\\*')
+    turn_name = turn_name.replace('_', '\\_').replace('*', '\\*')
     return (
         f"{SEP_B}\n"
         f"⚔️ СРАЖЕНИЕ: *{a_name}*  VS  *{b_name}* ⚔️\n"
