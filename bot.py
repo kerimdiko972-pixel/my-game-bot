@@ -2170,10 +2170,6 @@ def callback_battle_accept(call):
         reply_markup=battle_action_keyboard(battle_id)
     )
 
-    except Exception as e:
-        print(f"ERROR callback_battle_accept: {e}")
-        bot.answer_callback_query(call.id, "❌ Внутренняя ошибка!")
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith('battle_dec_'))
 def callback_battle_decline(call):
     try:
