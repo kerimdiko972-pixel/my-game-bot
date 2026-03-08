@@ -1035,6 +1035,7 @@ def cmd_set(message):
         )
 
 @bot.message_handler(commands=['zoo'])
+@bot.message_handler(commands=['zoo'])
 def cmd_zoo(message):
     args = message.text.split()
     if len(args) > 1:
@@ -1049,20 +1050,31 @@ def cmd_zoo(message):
         user_id  = message.from_user.id
         username = message.from_user.username or message.from_user.first_name
         register_user(user_id, username)
+
     pets = get_pets(user_id)
     if not pets:
         bot.send_message(message.chat.id, f"🐾 У игрока *{username}* нет питомцев!", parse_mode='Markdown')
         return
+
+    # Считаем уникальные виды (не дубликаты)
+    TOTAL_PETS = 95
+    unique_collected = len(pets)  # get_pets возвращает по одной строке на вид
+
     rarity_order = [
-        "☄️ Секретные","🌈 Хроматические","🔴 Мифические",
-        "🟡 Легендарные","🟣 Эпические","🔵 Редкие","🟢 Обычные"
+        "☄️ Секретные", "🌈 Хроматические", "🔴 Мифические",
+        "🟡 Легендарные", "🟣 Эпические", "🔵 Редкие", "🟢 Обычные"
     ]
+
     grouped = {}
     for pet, rarity, count in pets:
         if rarity not in grouped:
             grouped[rarity] = []
         grouped[rarity].append((pet, count))
-    text = f"🐾 Питомцы игрока *{username}* 🐾\n\n"
+
+    safe_username = username.replace('_', '\\_').replace('*', '\\*')
+    text = f"🐾 Питомцы игрока *{safe_username}* 🐾\n\n"
+    text += f"🪹 Собрано *{unique_collected} / {TOTAL_PETS}*\n\n"
+
     for rarity in rarity_order:
         if rarity in grouped:
             emoji = PETS[rarity]["emoji"]
@@ -1070,6 +1082,7 @@ def cmd_zoo(message):
             for pet, count in grouped[rarity]:
                 text += f"  {pet} ×{count}\n" if count > 1 else f"  {pet}\n"
             text += "\n"
+
     bot.send_message(message.chat.id, text, parse_mode='Markdown')
 
 # ===== КОЛБЭКИ =====
