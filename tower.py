@@ -398,6 +398,14 @@ def create_tower_char(user_id, char_name, class_key):
     conn.commit()
     conn.close()
 
+def get_tower_char(user_id):
+    conn = get_conn()
+    c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    c.execute('SELECT * FROM tower_chars WHERE user_id=%s', (user_id,))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
 def delete_tower_char(user_id):
     conn = get_conn()
     c = conn.cursor()
