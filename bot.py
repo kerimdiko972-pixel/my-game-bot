@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask
 from config import BOT_TOKEN
+from tower import register_tower, init_tower_tables
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, use_class_middlewares=True)
 app = Flask(__name__)
@@ -2379,6 +2380,7 @@ def callback_battle_close(call):
 
 # ===== ЗАПУСК =====
 init_db()
+init_tower_tables()
 init_battle_tables()
 
 bot.delete_webhook(drop_pending_updates=True)
@@ -2391,4 +2393,5 @@ bot_thread = threading.Thread(target=run_bot, daemon=True)
 bot_thread.start()
 print(f"Поток бота создан: {bot_thread.is_alive()}")
 
+register_tower(bot)
 run_flask()
