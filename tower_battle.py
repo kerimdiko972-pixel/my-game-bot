@@ -663,10 +663,18 @@ def register_tower_battle(bot):
         char = get_tower_char(user_id)
         if not char: return
 
-        if is_in_battle(user_id):
-            state = get_battle(user_id)
+        state = get_battle(user_id)
+
+        # Если есть активный бой с живым врагом — возобновляем
+        if state and state.get('enemy_hp', 0) > 0 and 'enemy_key' in state:
+            try: bot.delete_message(call.message.chat.id, call.message.message_id)
+            except: pass
             send_battle(bot, call.message.chat.id, user_id, char, state)
             return
+
+        # Иначе — очищаем устаревшее состояние (победа, событие, сокровищница)
+        if state:
+            delete_battle(user_id)
 
         # Начинаем с этажа 1
         floor = 1
