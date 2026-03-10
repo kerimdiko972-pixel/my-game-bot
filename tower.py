@@ -413,6 +413,22 @@ def delete_tower_char(user_id):
     conn.commit()
     conn.close()
 
+def get_active_battle_floor(user_id):
+    """Возвращает номер этажа активной битвы или None."""
+    try:
+        conn = get_conn()
+        c = conn.cursor()
+        c.execute('SELECT state FROM tower_battles WHERE user_id=%s', (user_id,))
+        row = c.fetchone()
+        conn.close()
+        if row and row[0]:
+            data = json.loads(row[0])
+            if data.get('enemy_hp', 0) > 0:
+                return data.get('floor')
+    except:
+        pass
+    return None
+
 def get_items(char):
     try: return json.loads(char.get('items') or '{}')
     except: return {}
@@ -502,16 +518,23 @@ def tower_main_text(char):
         f"💰 Монет: *{char['coins']}*\n\n{SEP}"
     )
 
-def tower_main_keyboard(char):
+def tower_main_keyboard(char, active_floor=None):
     is_spell = char['class_key'] in SPELL_CLASSES
     markup = InlineKeyboardMarkup(row_width=2)
+    
+    # Меняем текст кнопки если идёт бой
+    if active_floor:
+        start_label = f"⚔️ Продолжить (этаж {active_floor})"
+    else:
+        start_label = "⚔️ Начать"
+    
     if is_spell:
         markup.add(
-            InlineKeyboardButton("⚔️ Начать",       callback_data="tower_start"),
-            InlineKeyboardButton("💫 Заклинания",    callback_data="tower_spells"),
+            InlineKeyboardButton(start_label, callback_data="tower_start"),
+            InlineKeyboardButton("💫 Заклинания", callback_data="tower_spells"),
         )
     else:
-        markup.add(InlineKeyboardButton("⚔️ Начать", callback_data="tower_start"))
+        markup.add(InlineKeyboardButton(start_label, callback_data="tower_start"))
     markup.add(
         InlineKeyboardButton("⬆️ Улучшить статы",   callback_data="tower_upgrade"),
         InlineKeyboardButton("📜 Навыки",            callback_data="tower_skills"),
@@ -598,20 +621,22 @@ def register_tower(bot):
 
     @bot.message_handler(commands=['tower'])
     def cmd_tower(message):
-        uid = message.from_user.id
-        uname = message.from_user.username
-        char = get_tower_char(uid)
-        if uname and char:
-            save_username(uid, uname)
-        if not char:
-            markup = InlineKeyboardMarkup()
-            markup.add(InlineKeyboardButton("👤 Создать", callback_data="tower_create"))
-            bot.send_message(message.chat.id,
-                "— – - 🏯 БАШНЯ ХАОСА 🏯 - – —\n\n❌ У тебя ещё не создан персонаж",
-                reply_markup=markup)
-        else:
-            bot.send_message(message.chat.id, tower_main_text(char),
-                reply_markup=tower_main_keyboard(char), parse_mode='Markdown')
+    uid = message.from_user.id
+    uname = message.from_user.username
+    char = get_tower_char(uid)
+    if uname and char:
+        save_username(uid, uname)
+    if not char:
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("👤 Создать", callback_data="tower_create"))
+        bot.send_message(message.chat.id,
+            "— – - 🏯 БАШНЯ ХАОСА 🏯 - – —\n\n❌ У тебя ещё не создан персонаж",
+            reply_markup=markup)
+    else:
+        active_floor = get_active_battle_floor(uid)  # <- добавить
+        bot.send_message(message.chat.id, tower_main_text(char),
+            reply_markup=tower_main_keyboard(char, active_floor),  # <- передать
+            parse_mode='Markdown')
 
     @bot.callback_query_handler(func=lambda call: call.data == 'tower_create')
     def cb_create(call):
