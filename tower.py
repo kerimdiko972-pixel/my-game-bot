@@ -16,42 +16,42 @@ def get_conn():
 CLASSES = {
     "warrior": {
         "name": "Воин", "emoji": "⚔️",
-        "base_hp": 130, "base_mp": 48, "k1": 3, "k2": 1,
+        "base_hp": 130, "base_mp": 6, "k1": 3, "k2": 1,
         "stats": {"strength": 8, "agility": 5, "intellect": 3,
                   "constitution": 8, "speed": 6, "charisma": 5},
         "lead": ["strength", "constitution"],
     },
     "barbarian": {
         "name": "Варвар", "emoji": "🪓",
-        "base_hp": 140, "base_mp": 42, "k1": 3, "k2": 1,
+        "base_hp": 140, "base_mp": 5, "k1": 3, "k2": 1,
         "stats": {"strength": 9, "agility": 4, "intellect": 2,
                   "constitution": 9, "speed": 6, "charisma": 3},
         "lead": ["strength", "constitution"],
     },
     "assassin": {
         "name": "Ассасин", "emoji": "🗡️",
-        "base_hp": 90, "base_mp": 54, "k1": 2, "k2": 2,
+        "base_hp": 90, "base_mp": 8, "k1": 2, "k2": 2,
         "stats": {"strength": 6, "agility": 9, "intellect": 4,
                   "constitution": 4, "speed": 7, "charisma": 6},
         "lead": ["agility", "charisma"],
     },
     "ranger": {
         "name": "Следопыт", "emoji": "🏹",
-        "base_hp": 100, "base_mp": 54, "k1": 2, "k2": 2,
+        "base_hp": 100, "base_mp": 8, "k1": 2, "k2": 2,
         "stats": {"strength": 6, "agility": 8, "intellect": 4,
                   "constitution": 5, "speed": 7, "charisma": 4},
         "lead": ["agility", "intellect"],
     },
     "mage": {
         "name": "Волшебник", "emoji": "🪄",
-        "base_hp": 100, "base_mp": 84, "k1": 1, "k2": 3,
+        "base_hp": 100, "base_mp": 20, "k1": 1, "k2": 3,
         "stats": {"strength": 2, "agility": 4, "intellect": 9,
                   "constitution": 5, "speed": 10, "charisma": 6},
         "lead": ["intellect", "charisma"],
     },
     "warlock": {
         "name": "Колдун", "emoji": "🔮",
-        "base_hp": 120, "base_mp": 78, "k1": 1, "k2": 3,
+        "base_hp": 120, "base_mp": 20, "k1": 1, "k2": 3,
         "stats": {"strength": 3, "agility": 4, "intellect": 8,
                   "constitution": 7, "speed": 8, "charisma": 8},
         "lead": ["intellect", "charisma"],
@@ -71,6 +71,254 @@ STAT_NAMES = {
 
 SEP = "– – – – – – – – – – – – – – – –"
 
+# ═══════════════════════════════════════════════════════════════
+# МОДИФИКАТОРЫ ХАРАКТЕРИСТИК
+# ═══════════════════════════════════════════════════════════════
+
+STAT_MOD = {
+    1: -5, 2: -4, 3: -4, 4: -3, 5: -3,
+    6: -2, 7: -2, 8: -1, 9: -1, 10: 0,
+    11: 0, 12: 1, 13: 1, 14: 2, 15: 2,
+    16: 3, 17: 3, 18: 4, 19: 4, 20: 5,
+}
+
+# ═══════════════════════════════════════════════════════════════
+# ЗАКЛИНАНИЯ
+# ═══════════════════════════════════════════════════════════════
+
+SPELLS = {
+    # ── Уровень 1 ──────────────────────────────────────────────
+    "fire_spark": {
+        "name": "Искра огня", "emoji": "🔥", "level": 1, "mana": 4,
+        "desc": "Наносит 6 + (Интеллект×1) урона. Накладывает 🔥Ожог (2 хода).",
+        "damage": lambda intel: 6 + intel * 1,
+        "effect": ("burn", 2),
+    },
+    "ice_arrow_1": {
+        "name": "Ледяная стрела", "emoji": "❄️", "level": 1, "mana": 4,
+        "desc": "Наносит 5 + (Интеллект×1) урона. Накладывает ❄️Холод (2 хода).",
+        "damage": lambda intel: 5 + intel * 1,
+        "effect": ("cold", 2),
+    },
+    "lightning_spark": {
+        "name": "Искра молнии", "emoji": "⚡", "level": 1, "mana": 5,
+        "desc": "Наносит 6 + (Интеллект×1.1) урона. 20% шанс 💫Шока (1 ход).",
+        "damage": lambda intel: int(6 + intel * 1.1),
+        "effect": ("shock", 1), "effect_chance": 0.2,
+    },
+    "poison_bite": {
+        "name": "Ядовитый укус", "emoji": "☠️", "level": 1, "mana": 5,
+        "desc": "Накладывает ☠️Яд (2).",
+        "damage": None, "effect": ("poison", 2),
+    },
+    "blindness_fog": {
+        "name": "Туман слепоты", "emoji": "🌫️", "level": 1, "mana": 6,
+        "desc": "Накладывает 👁️‍🗨️Слепоту (2 хода).",
+        "damage": None, "effect": ("blind", 2),
+    },
+    "minor_regen": {
+        "name": "Малое восстановление", "emoji": "🌿", "level": 1, "mana": 5,
+        "desc": "Накладывает 🌿Регенерацию (2).",
+        "damage": None, "effect": ("regen", 2), "target": "self",
+    },
+    "blood_prick": {
+        "name": "Кровавый укол", "emoji": "🩸", "level": 1, "mana": 5,
+        "desc": "Наносит 5 + (Интеллект×1) урона и накладывает 🩸Кровотечение (2 хода).",
+        "damage": lambda intel: 5 + intel * 1,
+        "effect": ("bleed", 2),
+    },
+    "weakness_curse": {
+        "name": "Проклятие слабости", "emoji": "💀", "level": 1, "mana": 6,
+        "desc": "Накладывает ⛓️‍💥Слабость (2 хода).",
+        "damage": None, "effect": ("weakness", 2),
+    },
+    "fear_aura": {
+        "name": "Аура страха", "emoji": "😱", "level": 1, "mana": 7,
+        "desc": "Накладывает 😱Страх (1 ход).",
+        "damage": None, "effect": ("fear", 1),
+    },
+    "magic_barrier": {
+        "name": "Магический барьер", "emoji": "🛡️", "level": 1, "mana": 6,
+        "desc": "Снижает входящий урон на 10 + Интеллект.",
+        "damage": None, "effect": ("barrier", 0), "target": "self",
+        "barrier_val": lambda intel: 10 + intel,
+    },
+    "electrocharge": {
+        "name": "Электроразряд", "emoji": "💫", "level": 1, "mana": 5,
+        "desc": "Наносит 6 + (Интеллект×1.1) урона.",
+        "damage": lambda intel: int(6 + intel * 1.1),
+        "effect": None,
+    },
+    "sleep_spell": {
+        "name": "Усыпление", "emoji": "🌙", "level": 1, "mana": 7,
+        "desc": "Накладывает 💤Сон.",
+        "damage": None, "effect": ("sleep", 0),
+    },
+    # ── Уровень 2 ──────────────────────────────────────────────
+    "fireball": {
+        "name": "Огненный шар", "emoji": "🔥", "level": 2, "mana": 8,
+        "desc": "Наносит 10 + (Интеллект×1.5) урона. Накладывает 🔥Ожог (3 хода).",
+        "damage": lambda intel: int(10 + intel * 1.5),
+        "effect": ("burn", 3),
+    },
+    "ice_arrow_2": {
+        "name": "Ледяная стрела", "emoji": "❄️", "level": 2, "mana": 7,
+        "desc": "9 + (Интеллект×1.4) урона. ❄️Холод (2 хода).",
+        "damage": lambda intel: int(9 + intel * 1.4),
+        "effect": ("cold", 2),
+    },
+    "lightning_discharge": {
+        "name": "Разряд молнии", "emoji": "⚡", "level": 2, "mana": 9,
+        "desc": "12 + (Интеллект×1.6) урона. 💫Шок (1 ход).",
+        "damage": lambda intel: int(12 + intel * 1.6),
+        "effect": ("shock", 1),
+    },
+    "poison_cloud": {
+        "name": "Ядовитое облако", "emoji": "☠️", "level": 2, "mana": 8,
+        "desc": "☠️Яд (3).", "damage": None, "effect": ("poison", 3),
+    },
+    "strong_regen": {
+        "name": "Сильная регенерация", "emoji": "🌿", "level": 2, "mana": 8,
+        "desc": "🌿Регенерация (3).", "damage": None, "effect": ("regen", 3), "target": "self",
+    },
+    "blood_curse": {
+        "name": "Кровавое проклятие", "emoji": "🩸", "level": 2, "mana": 9,
+        "desc": "🩸Кровотечение (3).", "damage": None, "effect": ("bleed", 3),
+    },
+    "darkness_curse": {
+        "name": "Проклятие тьмы", "emoji": "👁️", "level": 2, "mana": 8,
+        "desc": "👁️‍🗨️Слепота (3 хода).", "damage": None, "effect": ("blind", 3),
+    },
+    "terror_wave": {
+        "name": "Волна ужаса", "emoji": "😱", "level": 2, "mana": 10,
+        "desc": "😱Страх (2 хода).", "damage": None, "effect": ("fear", 2),
+    },
+    "protection_sphere": {
+        "name": "Сфера защиты", "emoji": "🛡️", "level": 2, "mana": 9,
+        "desc": "Снижает урон на 20 + Интеллект.", "damage": None,
+        "effect": ("barrier", 0), "target": "self",
+        "barrier_val": lambda intel: 20 + intel,
+    },
+    "magic_push": {
+        "name": "Магический толчок", "emoji": "🌪️", "level": 2, "mana": 8,
+        "desc": "10 + (Интеллект×1.5) урона.",
+        "damage": lambda intel: int(10 + intel * 1.5), "effect": None,
+    },
+    # ── Уровень 3 ──────────────────────────────────────────────
+    "fire_storm": {
+        "name": "Огненная буря", "emoji": "🔥", "level": 3, "mana": 12,
+        "desc": "15 + (Интеллект×2) урона. 🔥Ожог (3).",
+        "damage": lambda intel: int(15 + intel * 2), "effect": ("burn", 3),
+    },
+    "ice_storm": {
+        "name": "Ледяной шторм", "emoji": "❄️", "level": 3, "mana": 12,
+        "desc": "14 + (Интеллект×2) урона. ❄️Холод (3).",
+        "damage": lambda intel: int(14 + intel * 2), "effect": ("cold", 3),
+    },
+    "chain_lightning": {
+        "name": "Цепная молния", "emoji": "⚡", "level": 3, "mana": 13,
+        "desc": "17 + (Интеллект×2) урона. 💫Шок (1).",
+        "damage": lambda intel: int(17 + intel * 2), "effect": ("shock", 1),
+    },
+    "plague": {
+        "name": "Чума", "emoji": "☠️", "level": 3, "mana": 12,
+        "desc": "☠️Яд (4).", "damage": None, "effect": ("poison", 4),
+    },
+    "flesh_tear": {
+        "name": "Разрыв плоти", "emoji": "🩸", "level": 3, "mana": 12,
+        "desc": "🩸Кровотечение (4).", "damage": None, "effect": ("bleed", 4),
+    },
+    "deep_sleep": {
+        "name": "Глубокий сон", "emoji": "🌙", "level": 3, "mana": 13,
+        "desc": "💤Сон.", "damage": None, "effect": ("sleep", 0),
+    },
+    "horror_curse": {
+        "name": "Проклятие ужаса", "emoji": "😱", "level": 3, "mana": 13,
+        "desc": "😱Страх (2).", "damage": None, "effect": ("fear", 2),
+    },
+    "life_flow": {
+        "name": "Поток жизни", "emoji": "🌿", "level": 3, "mana": 12,
+        "desc": "🌿Регенерация (4).", "damage": None, "effect": ("regen", 4), "target": "self",
+    },
+    "void_darkness": {
+        "name": "Тьма бездны", "emoji": "👁️", "level": 3, "mana": 13,
+        "desc": "👁️‍🗨️Слепота (4).", "damage": None, "effect": ("blind", 4),
+    },
+    "weakening_curse": {
+        "name": "Ослабляющее проклятие", "emoji": "💀", "level": 3, "mana": 12,
+        "desc": "⛓️‍💥Слабость (3).", "damage": None, "effect": ("weakness", 3),
+    },
+    # ── Уровень 4 ──────────────────────────────────────────────
+    "hellfire": {
+        "name": "Адское пламя", "emoji": "🔥", "level": 4, "mana": 16,
+        "desc": "22 + (Интеллект×2.5) урона. 🔥Ожог (4).",
+        "damage": lambda intel: int(22 + intel * 2.5), "effect": ("burn", 4),
+    },
+    "lightning_storm": {
+        "name": "Буря молний", "emoji": "⚡", "level": 4, "mana": 17,
+        "desc": "23 + (Интеллект×2.5) урона. 💫Шок (2).",
+        "damage": lambda intel: int(23 + intel * 2.5), "effect": ("shock", 2),
+    },
+    "death_plague": {
+        "name": "Смертельная чума", "emoji": "☠️", "level": 4, "mana": 16,
+        "desc": "☠️Яд (5).", "damage": None, "effect": ("poison", 5),
+    },
+    "blood_execution": {
+        "name": "Кровавая казнь", "emoji": "🩸", "level": 4, "mana": 16,
+        "desc": "🩸Кровотечение (5).", "damage": None, "effect": ("bleed", 5),
+    },
+    "horror_gaze": {
+        "name": "Взгляд ужаса", "emoji": "😱", "level": 4, "mana": 15,
+        "desc": "😱Страх (3).", "damage": None, "effect": ("fear", 3),
+    },
+    "great_regen": {
+        "name": "Великая регенерация", "emoji": "🌿", "level": 4, "mana": 15,
+        "desc": "🌿Регенерация (5).", "damage": None, "effect": ("regen", 5), "target": "self",
+    },
+    "shadow_punishment": {
+        "name": "Теневая кара", "emoji": "🌑", "level": 4, "mana": 16,
+        "desc": "20 + (Интеллект×2.4) урона и ⛓️‍💥Слабость (3).",
+        "damage": lambda intel: int(20 + intel * 2.4), "effect": ("weakness", 3),
+    },
+    # ── Уровень 5 ──────────────────────────────────────────────
+    "meteor": {
+        "name": "Метеор", "emoji": "☄️", "level": 5, "mana": 22,
+        "desc": "30 + (Интеллект×3) урона. 🔥Ожог (5).",
+        "damage": lambda intel: int(30 + intel * 3), "effect": ("burn", 5),
+    },
+    "lightning_cataclysm": {
+        "name": "Катаклизм молний", "emoji": "⚡", "level": 5, "mana": 23,
+        "desc": "32 + (Интеллект×3) урона. 💫Шок (2).",
+        "damage": lambda intel: int(32 + intel * 3), "effect": ("shock", 2),
+    },
+    "destruction_plague": {
+        "name": "Чума разрушения", "emoji": "☠️", "level": 5, "mana": 21,
+        "desc": "☠️Яд (6).", "damage": None, "effect": ("poison", 6),
+    },
+    "blood_apocalypse": {
+        "name": "Кровавый апокалипсис", "emoji": "🩸", "level": 5, "mana": 21,
+        "desc": "🩸Кровотечение (6).", "damage": None, "effect": ("bleed", 6),
+    },
+    "death_touch": {
+        "name": "Прикосновение смерти", "emoji": "🌑", "level": 5, "mana": 22,
+        "desc": "28 + (Интеллект×2.8) урона и ⛓️‍💥Слабость (4).",
+        "damage": lambda intel: int(28 + intel * 2.8), "effect": ("weakness", 4),
+    },
+}
+
+STARTING_SPELLS = {
+    "mage":    ["fire_spark", "ice_arrow_1"],
+    "warlock": ["poison_bite", "fear_aura"],
+}
+
+def spell_damage_text(spell_key, intel):
+    spell = SPELLS.get(spell_key)
+    if not spell or not spell.get("damage"):
+        return "—"
+    return str(int(spell["damage"](intel)))
+
+def get_mod(val):
+    return STAT_MOD.get(max(1, min(20, val)), 0)
 # ═══════════════════════════════════════════════════════════════
 # ЭФФЕКТЫ СТАТУСОВ
 # ═══════════════════════════════════════════════════════════════
@@ -158,7 +406,11 @@ def init_tower_tables():
             items           TEXT DEFAULT '{}',
             owned_weapons   TEXT DEFAULT '["Голые кулаки"]',
             owned_armors    TEXT DEFAULT '["Лёгкая одежда"]',
-            owned_artifacts TEXT DEFAULT '[]'
+            owned_artifacts TEXT DEFAULT '[]',
+            learned_spells  TEXT DEFAULT '[]',
+            spell_slot_1    TEXT DEFAULT NULL,
+            spell_slot_2    TEXT DEFAULT NULL,
+            spell_slot_3    TEXT DEFAULT NULL
         )
     ''')
     # Миграция: добавляем новые колонки если их нет
@@ -167,6 +419,10 @@ def init_tower_tables():
         ("owned_weapons",   "TEXT DEFAULT '[\"Голые кулаки\"]'"),
         ("owned_armors",    "TEXT DEFAULT '[\"Лёгкая одежда\"]'"),
         ("owned_artifacts", "TEXT DEFAULT '[]'"),
+        ("learned_spells",  "TEXT DEFAULT '[]'"),   # ← новое
+        ("spell_slot_1",    "TEXT DEFAULT NULL"),    # ← новое
+        ("spell_slot_2",    "TEXT DEFAULT NULL"),    # ← новое
+        ("spell_slot_3",    "TEXT DEFAULT NULL"),    # ← новое
     ]:
         try:
             c.execute(f"ALTER TABLE tower_chars ADD COLUMN {col} {definition}")
@@ -235,6 +491,13 @@ def create_tower_char(user_id, char_name, class_key):
     max_hp = cls["base_hp"] + stats["constitution"] * 1 * cls["k1"]
     max_mp = cls["base_mp"] + stats["intellect"] * 1 * cls["k2"]
     starting_items = json.dumps(STARTING_ITEMS.get(class_key, {}))
+
+    # Начальные заклинания
+    start_spells = STARTING_SPELLS.get(class_key, [])
+    learned = json.dumps(start_spells)
+    slot1 = start_spells[0] if len(start_spells) > 0 else None
+    slot2 = start_spells[1] if len(start_spells) > 1 else None
+
     conn = get_conn()
     c = conn.cursor()
     c.execute('''
@@ -242,17 +505,19 @@ def create_tower_char(user_id, char_name, class_key):
         (user_id, char_name, class_key, level, exp, stat_points, mastery_bonus,
          hp, mp, strength, agility, intellect, constitution, speed, charisma,
          weapon, armor, artifact, coins, best_floor,
-         items, owned_weapons, owned_armors, owned_artifacts)
+         items, owned_weapons, owned_armors, owned_artifacts,
+         learned_spells, spell_slot_1, spell_slot_2, spell_slot_3)
         VALUES (%s,%s,%s,1,0,0,1,%s,%s,%s,%s,%s,%s,%s,%s,
                 'Голые кулаки','Лёгкая одежда','Нет',0,0,
-                %s,'["Голые кулаки"]','["Лёгкая одежда"]','[]')
+                %s,'["Голые кулаки"]','["Лёгкая одежда"]','[]',
+                %s,%s,%s,NULL)
         ON CONFLICT (user_id) DO NOTHING
     ''', (
         user_id, char_name, class_key,
         max_hp, max_mp,
         stats["strength"], stats["agility"], stats["intellect"],
         stats["constitution"], stats["speed"], stats["charisma"],
-        starting_items
+        starting_items, learned, slot1, slot2
     ))
     conn.commit()
     conn.close()
@@ -892,6 +1157,181 @@ def register_tower(bot):
     def cb_tower_delete_cancel(call):
         bot.answer_callback_query(call.id, "Отменено")
 
+    # ── Заклинания ────────────────────────────────────────────
+    def get_learned_spells(char):
+        try: return json.loads(char.get('learned_spells') or '[]')
+        except: return []
+
+    def spells_text(char):
+        cls = CLASSES[char['class_key']]
+        max_mp = calc_max_mp(char)
+        learned = get_learned_spells(char)
+
+        slots = []
+        for i, slot in enumerate(['spell_slot_1','spell_slot_2','spell_slot_3'], 1):
+            key = char.get(slot)
+            num = ['1️⃣','2️⃣','3️⃣'][i-1]
+            if key and key in SPELLS:
+                sp = SPELLS[key]
+                slots.append(f"{num} {sp['emoji']} {sp['name']}")
+            else:
+                slots.append(f"{num} —")
+
+        active_count = sum(1 for s in ['spell_slot_1','spell_slot_2','spell_slot_3'] if char.get(s))
+
+        return (
+            f"— – – – – 💫✨ ЗАКЛИНАНИЯ ✨💫 – – – – –\n\n"
+            f"Имя: *{safe(char['char_name'])}*\n"
+            f"Класс: {cls['emoji']} {cls['name']}\n"
+            f"⭐ Уровень: *{char['level']}*\n\n"
+            f"⚡ Мана: *{char['mp']}/{max_mp}*\n\n"
+            f"━━━━━━━━━━━━━━━━\n\n"
+            f"🎯 Активные заклинания ({active_count}/3):\n\n"
+            f"{chr(10).join(slots)}\n\n"
+            f"━━━━━━━━━━━━━━━━\n\n"
+            f"📚 Изученные заклинания: *{len(learned)}*\n\n"
+            f"Выберите действие:"
+        )
+
+    def spells_main_keyboard():
+        markup = InlineKeyboardMarkup(row_width=1)
+        markup.add(
+            InlineKeyboardButton("📜 Все заклинания", callback_data="tower_spells_all"),
+            InlineKeyboardButton("🔄 Сменить слот",   callback_data="tower_spells_swap"),
+            InlineKeyboardButton("🔙 Назад",          callback_data="tower_back"),
+        )
+        return markup
+
+    @bot.callback_query_handler(func=lambda call: call.data == 'tower_spells')
+    def cb_tower_spells(call):
+        bot.answer_callback_query(call.id)
+        char = get_tower_char(call.from_user.id)
+        if not char or char['class_key'] not in SPELL_CLASSES:
+            bot.answer_callback_query(call.id, "❌ Только для магов!", show_alert=True)
+            return
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
+        bot.send_message(call.message.chat.id,
+            spells_text(char), reply_markup=spells_main_keyboard(), parse_mode='Markdown')
+
+    @bot.callback_query_handler(func=lambda call: call.data == 'tower_spells_all')
+    def cb_tower_spells_all(call):
+        bot.answer_callback_query(call.id)
+        char = get_tower_char(call.from_user.id)
+        if not char: return
+        learned = get_learned_spells(char)
+        intel = char['intellect']
+
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
+
+        if not learned:
+            markup = InlineKeyboardMarkup()
+            markup.add(InlineKeyboardButton("🔙 Назад", callback_data="tower_spells"))
+            bot.send_message(call.message.chat.id, "📚 Нет изученных заклинаний.", reply_markup=markup)
+            return
+
+        markup = InlineKeyboardMarkup(row_width=1)
+        for key in learned:
+            sp = SPELLS.get(key)
+            if sp:
+                markup.add(InlineKeyboardButton(
+                    f"{'⭐'*sp['level']} {sp['emoji']} {sp['name']} | ⚡{sp['mana']}",
+                    callback_data=f"tower_spell_info_{key}"
+                ))
+        markup.add(InlineKeyboardButton("🔙 Назад", callback_data="tower_spells"))
+        bot.send_message(call.message.chat.id, "📚 *Все заклинания:*", reply_markup=markup, parse_mode='Markdown')
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith('tower_spell_info_'))
+    def cb_tower_spell_info(call):
+        bot.answer_callback_query(call.id)
+        spell_key = call.data.replace('tower_spell_info_', '')
+        sp = SPELLS.get(spell_key)
+        char = get_tower_char(call.from_user.id)
+        if not sp or not char: return
+
+        intel = char['intellect']
+        dmg_text = f"\n💢 Урон: *{int(sp['damage'](intel))}*" if sp.get('damage') else ""
+
+        markup = InlineKeyboardMarkup(row_width=1)
+        markup.add(InlineKeyboardButton("🔙 Назад", callback_data="tower_spells_all"))
+
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
+        bot.send_message(call.message.chat.id,
+            f"{'⭐'*sp['level']} {sp['emoji']} *{sp['name']}*\n"
+            f"Уровень заклинания: *{sp['level']}*\n"
+            f"⚡ Мана: *{sp['mana']}*{dmg_text}\n\n"
+            f"{sp['desc']}",
+            reply_markup=markup, parse_mode='Markdown')
+
+    @bot.callback_query_handler(func=lambda call: call.data == 'tower_spells_swap')
+    def cb_tower_spells_swap(call):
+        bot.answer_callback_query(call.id)
+        char = get_tower_char(call.from_user.id)
+        if not char: return
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
+        markup = InlineKeyboardMarkup(row_width=1)
+        for i, slot in enumerate(['spell_slot_1','spell_slot_2','spell_slot_3'], 1):
+            key = char.get(slot)
+            label = f"{'1️⃣2️⃣3️⃣'[i-1]} "
+            if key and key in SPELLS:
+                sp = SPELLS[key]
+                label += f"{sp['emoji']} {sp['name']}"
+            else:
+                label += "— (пусто)"
+            markup.add(InlineKeyboardButton(label, callback_data=f"tower_pick_slot_{i}"))
+        markup.add(InlineKeyboardButton("🔙 Назад", callback_data="tower_spells"))
+        bot.send_message(call.message.chat.id, "Выбери слот для замены:", reply_markup=markup)
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith('tower_pick_slot_'))
+    def cb_tower_pick_slot(call):
+        bot.answer_callback_query(call.id)
+        slot_num = call.data.replace('tower_pick_slot_', '')
+        char = get_tower_char(call.from_user.id)
+        if not char: return
+        learned = get_learned_spells(char)
+        if not learned:
+            bot.answer_callback_query(call.id, "❌ Нет изученных заклинаний!", show_alert=True)
+            return
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
+        markup = InlineKeyboardMarkup(row_width=1)
+        for key in learned:
+            sp = SPELLS.get(key)
+            if sp:
+                markup.add(InlineKeyboardButton(
+                    f"{sp['emoji']} {sp['name']} | ⭐{sp['level']} ⚡{sp['mana']}",
+                    callback_data=f"tower_set_slot_{slot_num}_{key}"
+                ))
+        markup.add(InlineKeyboardButton("🔙 Назад", callback_data="tower_spells_swap"))
+        bot.send_message(call.message.chat.id,
+            f"Выбери заклинание для слота {slot_num}:", reply_markup=markup)
+        
+    @bot.callback_query_handler(func=lambda call: call.data.startswith('tower_set_slot_'))
+    def cb_tower_set_slot(call):
+        bot.answer_callback_query(call.id)
+        parts = call.data.replace('tower_set_slot_', '').split('_', 1)
+        if len(parts) < 2: return
+        slot_num, spell_key = parts[0], parts[1]
+        if slot_num not in ('1','2','3') or spell_key not in SPELLS: return
+        user_id = call.from_user.id
+        col = f"spell_slot_{slot_num}"
+        conn = get_conn()
+        c = conn.cursor()
+        c.execute(f'UPDATE tower_chars SET {col}=%s WHERE user_id=%s', (spell_key, user_id))
+        conn.commit()
+        conn.close()
+        sp = SPELLS[spell_key]
+        char = get_tower_char(user_id)
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
+        bot.send_message(call.message.chat.id,
+            f"✅ Слот {slot_num} → *{sp['emoji']} {sp['name']}*", parse_mode='Markdown')
+        bot.send_message(call.message.chat.id,
+            spells_text(char), reply_markup=spells_main_keyboard(), parse_mode='Markdown')
+    
     # ── Заглушки ──────────────────────────────────────────────
     @bot.callback_query_handler(func=lambda call: call.data in [
         'tower_start', 'tower_skills', 'tower_records', 'tower_spells'
