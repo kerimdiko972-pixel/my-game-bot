@@ -161,6 +161,61 @@ WEAPONS = {
 STATUS_EFFECTS = {
     "burn":       {"name":"Ожог","emoji":"🔥","desc":"Наносит 5–10 урона в конце каждого хода."},
     "cold":       {"name":"Холод","emoji":"❄️","desc":"Уменьшает скорость и ловкость на -2."},
+    "shock":      {"name":"Шок","emoji":"💫","desc":"Пропускный","stat_key":"intellect","damage":lambda c:int(7+c["intellect"]*1.8), "desc_template":"7+Инт×1.8",   "effect":None},
+    "curved_dagger":    {"name":"Кривой кинжал",          "rarity":"🟢","rarity_name":"Необычный","stat_key":"agility",  "damage":lambda c:int(6+c["agility"]*2),     "desc_template":"6+Ловк×2",    "effect":None},
+    "battle_sickle":    {"name":"Боевой серп",            "rarity":"🟢","rarity_name":"Необычный","stat_key":"agility",  "damage":lambda c:int(8+c["agility"]*2),     "desc_template":"8+Ловк×2",    "effect":None},
+    "soldier_sword":    {"name":"Солдатский меч",         "rarity":"🟢","rarity_name":"Необычный","stat_key":"strength", "damage":lambda c:int(9+c["strength"]*2),    "desc_template":"9+Сила×2",    "effect":None},
+    # Редкие
+    "flaming_blade":    {"name":"🔥Пылающий клинок",      "rarity":"🔵","rarity_name":"Редкий","stat_key":"strength", "damage":lambda c:int(12+c["strength"]*2),   "desc_template":"12+Сила×2",    "effect":"🔥Ожог 2 хода."},
+    "ice_axe":          {"name":"❄️Ледяной топор",         "rarity":"🔵","rarity_name":"Редкий","stat_key":"strength", "damage":lambda c:int(13+c["strength"]*1.9), "desc_template":"13+Сила×1.9",  "effect":"❄️Холод 2 хода."},
+    "lightning_blade":  {"name":"⚡Клинок молнии",         "rarity":"🔵","rarity_name":"Редкий","stat_key":"agility",  "damage":lambda c:int(11+c["agility"]*2.1),  "desc_template":"11+Ловк×2.1",  "effect":"💫Шок 1 ход."},
+    "poison_dagger":    {"name":"☠️Отравленный кинжал",    "rarity":"🔵","rarity_name":"Редкий","stat_key":"agility",  "damage":lambda c:int(10+c["agility"]*2.2),  "desc_template":"10+Ловк×2.2",  "effect":"☠️Яд 3 хода."},
+    "blood_sickle":     {"name":"🩸Кровавый серп",         "rarity":"🔵","rarity_name":"Редкий","stat_key":"agility",  "damage":lambda c:int(12+c["agility"]*2),    "desc_template":"12+Ловк×2",    "effect":"🩸Кровотечение 3 хода."},
+    "merc_blade":       {"name":"⚔️Клинок наёмника",       "rarity":"🔵","rarity_name":"Редкий","stat_key":"strength", "damage":lambda c:int(13+c["strength"]*2),   "desc_template":"13+Сила×2",    "effect":None},
+    "wind_hunter_bow":  {"name":"🏹Лук охотника ветра",    "rarity":"🔵","rarity_name":"Редкий","stat_key":"agility",  "damage":lambda c:int(11+c["agility"]*2.1),  "desc_template":"11+Ловк×2.1",  "effect":"Требует 1 стрелу."},
+    "storm_crossbow":   {"name":"⚡Арбалет бури",           "rarity":"🔵","rarity_name":"Редкий","stat_key":"agility",  "damage":lambda c:int(13+c["agility"]*2),    "desc_template":"13+Ловк×2",    "effect":"Требует 1 болт. 💫Шок 1 ход."},
+    "ice_guard_spear":  {"name":"🧊Копьё ледяного стража", "rarity":"🔵","rarity_name":"Редкий","stat_key":"strength", "damage":lambda c:int(14+c["strength"]*1.9), "desc_template":"14+Сила×1.9",  "effect":"❄️Холод 2 хода."},
+    "flame_hammer":     {"name":"🔥Боевой молот пламени",  "rarity":"🔵","rarity_name":"Редкий","stat_key":"strength", "damage":lambda c:int(15+c["strength"]*1.8), "desc_template":"15+Сила×1.8",  "effect":"🔥Ожог 2 хода."},
+    "vortex_saber":     {"name":"🌪️Сабля вихря",           "rarity":"🔵","rarity_name":"Редкий","stat_key":"agility",  "damage":lambda c:int(12+c["agility"]*2.1),  "desc_template":"12+Ловк×2.1",  "effect":None},
+    "black_magic_staff":{"name":"💀Посох чёрной магии",    "rarity":"🔵","rarity_name":"Редкий","stat_key":"intellect","damage":lambda c:int(10+c["intellect"]*2),  "desc_template":"10+Инт×2",     "effect":"+10% к силе заклинаний."},
+    "dark_wand":        {"name":"🌑Жезл тёмных чар",       "rarity":"🔵","rarity_name":"Редкий","stat_key":"intellect","damage":lambda c:int(11+c["intellect"]*2),  "desc_template":"11+Инт×2",     "effect":"⛓️‍💥Слабость 2 хода."},
+    "thunder_staff":    {"name":"⚡Посох грома",            "rarity":"🔵","rarity_name":"Редкий","stat_key":"intellect","damage":lambda c:int(12+c["intellect"]*2),  "desc_template":"12+Инт×2",     "effect":"💫Шок 1 ход."},
+    "ice_storm_staff":  {"name":"❄️Посох ледяной бури",    "rarity":"🔵","rarity_name":"Редкий","stat_key":"intellect","damage":lambda c:int(12+c["intellect"]*2),  "desc_template":"12+Инт×2",     "effect":"❄️Холод 3 хода."},
+    "fury_fire_staff":  {"name":"🔥Посох огненной ярости", "rarity":"🔵","rarity_name":"Редкий","stat_key":"intellect","damage":lambda c:int(13+c["intellect"]*2),  "desc_template":"13+Инт×2",     "effect":"🔥Ожог 3 хода."},
+    "plague_knight":    {"name":"☠️Клинок чумного рыцаря", "rarity":"🔵","rarity_name":"Редкий","stat_key":"strength", "damage":lambda c:int(14+c["strength"]*2),   "desc_template":"14+Сила×2",    "effect":"☠️Яд 3 хода."},
+    "cult_dagger":      {"name":"🩸Кинжал кровавого культа","rarity":"🔵","rarity_name":"Редкий","stat_key":"agility", "damage":lambda c:int(12+c["agility"]*2.2),  "desc_template":"12+Ловк×2.2",  "effect":"🩸Кровотечение 3 хода."},
+    "fortress_sword":   {"name":"⚔️Меч стража крепости",   "rarity":"🔵","rarity_name":"Редкий","stat_key":"strength", "damage":lambda c:int(14+c["strength"]*2),   "desc_template":"14+Сила×2",    "effect":None},
+    "storm_blade":      {"name":"🌩️Клинок бури",           "rarity":"🔵","rarity_name":"Редкий","stat_key":"strength", "damage":lambda c:int(15+c["strength"]*1.9), "desc_template":"15+Сила×1.9",  "effect":"💫Шок 2 хода."},
+    # Эпические
+    "arctic_hammer":    {"name":"❄️Арктический Молот",          "rarity":"🟣","rarity_name":"Эпический","stat_key":"strength", "damage":lambda c:int(16+c["strength"]*2),   "desc_template":"16+Сила×2",  "effect":None},
+    "flame_blade":      {"name":"🔥Пламенный Клинок",           "rarity":"🟣","rarity_name":"Эпический","stat_key":"strength", "damage":lambda c:int(17+c["strength"]*2),   "desc_template":"17+Сила×2",  "effect":None},
+    "lightning_dagger": {"name":"⚡Молниеносный Кинжал",        "rarity":"🟣","rarity_name":"Эпический","stat_key":"agility",  "damage":lambda c:int(15+c["agility"]*2),    "desc_template":"15+Ловк×2",  "effect":None},
+    "poison_sickle":    {"name":"☠️Ядовитый Серп",              "rarity":"🟣","rarity_name":"Эпический","stat_key":"agility",  "damage":lambda c:int(16+c["agility"]*2),    "desc_template":"16+Ловк×2",  "effect":None},
+    "blood_blade_epic": {"name":"🩸Кровавый Клинок",            "rarity":"🟣","rarity_name":"Эпический","stat_key":"agility",  "damage":lambda c:int(17+c["agility"]*2),    "desc_template":"17+Ловк×2",  "effect":None},
+    "light_warrior":    {"name":"⚔️Клинок Воина Света",         "rarity":"🟣","rarity_name":"Эпический","stat_key":"strength", "damage":lambda c:int(18+c["strength"]*2),   "desc_template":"18+Сила×2",  "effect":None},
+    "shadow_bow":       {"name":"🏹Лук Теней",                  "rarity":"🟣","rarity_name":"Эпический","stat_key":"agility",  "damage":lambda c:int(16+c["agility"]*2),    "desc_template":"16+Ловк×2",  "effect":"Требует 1 стрелу."},
+    "storm_crossbow_e": {"name":"⚡Арбалет Грозы",              "rarity":"🟣","rarity_name":"Эпический","stat_key":"agility",  "damage":lambda c:int(18+c["agility"]*2),    "desc_template":"18+Ловк×2",  "effect":"Требует 1 болт."},
+    "ice_staff_epic":   {"name":"🧊Ледяной Посох",              "rarity":"🟣","rarity_name":"Эпический","stat_key":"intellect","damage":lambda c:int(16+c["intellect"]*2),  "desc_template":"16+Инт×2",   "effect":None},
+    "fire_will_staff":  {"name":"🔥Посох Огненной Воли",        "rarity":"🟣","rarity_name":"Эпический","stat_key":"intellect","damage":lambda c:int(17+c["intellect"]*2),  "desc_template":"17+Инт×2",   "effect":None},
+    "lightning_storm_staff":{"name":"⚡Посох Молниеносной Бури","rarity":"🟣","rarity_name":"Эпический","stat_key":"intellect","damage":lambda c:int(18+c["intellect"]*2),  "desc_template":"18+Инт×2",   "effect":None},
+    "poison_dark_staff":{"name":"☠️Посох Ядовитой Тьмы",       "rarity":"🟣","rarity_name":"Эпический","stat_key":"intellect","damage":lambda c:int(17+c["intellect"]*2),  "desc_template":"17+Инт×2",   "effect":None},
+    # Легендарные
+    "fire_fang":        {"name":"🔥Клинок Огненного Клыка",  "rarity":"🟠","rarity_name":"Легендарный","stat_key":"strength", "damage":lambda c:int(25+c["strength"]*2),  "desc_template":"25+Сила×2",  "effect":"Удар наносится дважды."},
+    "ice_fury":         {"name":"❄️Ледяная Ярость",          "rarity":"🟠","rarity_name":"Легендарный","stat_key":"strength", "damage":lambda c:int(24+c["strength"]*2),  "desc_template":"24+Сила×2",  "effect":"❄️Холод 3 хода."},
+    "lightning_discharge_leg":{"name":"⚡Молниеносный Разряд","rarity":"🟠","rarity_name":"Легендарный","stat_key":"agility", "damage":lambda c:int(23+c["agility"]*2),   "desc_template":"23+Ловк×2",  "effect":"💫Шок 1 ход (пропуск)."},
+    "plague_blade":     {"name":"☠️Клинок Чумы",            "rarity":"🟠","rarity_name":"Легендарный","stat_key":"agility",  "damage":lambda c:int(24+c["agility"]*2),   "desc_template":"24+Ловк×2",  "effect":"☠️Яд 4 хода."},
+    "blood_fury":       {"name":"🩸Кровавая Ярость",         "rarity":"🟠","rarity_name":"Легендарный","stat_key":"agility",  "damage":lambda c:int(25+c["agility"]*2),   "desc_template":"25+Ловк×2",  "effect":"🩸Кровотечение 4 хода."},
+    "lightbearer_sword":{"name":"⚔️Меч Светоносца",         "rarity":"🟠","rarity_name":"Легендарный","stat_key":"strength", "damage":lambda c:int(26+c["strength"]*2),  "desc_template":"26+Сила×2",  "effect":"Игнорирует броню врага."},
+    "ice_storm_staff_leg":{"name":"🧊Посох Ледяной Бури",   "rarity":"🟠","rarity_name":"Легендарный","stat_key":"intellect","damage":lambda c:int(25+c["intellect"]*2), "desc_template":"25+Инт×2",   "effect":"❄️Холод 4 хода + 💫Шок 2 хода."},
+}
+
+# ═══════════════════════════════════════════════════════════════
+# ЭФФЕКТЫ СТАТУСОВ
+# ═══════════════════════════════════════════════════════════════
+
+STATUS_EFFECTS = {
+    "burn":       {"name":"Ожог","emoji":"🔥","desc":"Наносит 5–10 урона в конце каждого хода."},
+    "cold":       {"name":"Холод","emoji":"❄️","desc":"Уменьшает скорость и ловкость на -2."},
     "shock":      {"name":"Шок","emoji":"💫","desc":"Пропускает ход."},
     "weakness":   {"name":"Слабость","emoji":"⛓️‍💥","desc":"-50% урона и -2 к силе."},
     "poison":     {"name":"Яд","emoji":"☠️","desc":"Урон = 10×{стак}, убывает на 1 каждый ход."},
