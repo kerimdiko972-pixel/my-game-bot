@@ -143,7 +143,7 @@ def create_tower_char(user_id, char_name, class_key):
         ON CONFLICT (user_id) DO NOTHING
     ''', (
         user_id, char_name, class_key,
-        base_hp, base_mp,
+        base_hp, base_mp,   # ← hp и mp сразу максимальные
         stats["strength"], stats["agility"], stats["intellect"],
         stats["constitution"], stats["speed"], stats["charisma"]
     ))
@@ -216,8 +216,8 @@ def tower_main_text(char):
         f"{stat_line('agility')}\n"
         f"{stat_line('intellect')}\n"
         f"{stat_line('constitution')}\n"
-        f"{stat_line('speed')}\n"
-        f"{stat_line('charisma')}\n\n"
+        f"{stat_line('charisma')}\n"
+        f"{stat_line('speed')}\n\n"
         f"💫 *Навыки:*\n"
         f"{chr(10).join(skills)}\n\n"
         f"– 📦 Снаряжение –\n\n"
@@ -405,14 +405,151 @@ def register_tower(bot):
 
     # ── Заглушки для кнопок (пока не реализованы) ────────────
     @bot.callback_query_handler(func=lambda call: call.data in [
-        'tower_start', 'tower_upgrade', 'tower_skills', 'tower_bag', 'tower_records'
+        'tower_start', 'tower_skills', 'tower_bag', 'tower_records'
     ])
     def cb_tower_stub(call):
         labels = {
             'tower_start':   '⚔️ Режим прохождения башни будет добавлен скоро!',
-            'tower_upgrade': '⬆️ Улучшение статов будет добавлено скоро!',
             'tower_skills':  '📜 Система навыков будет добавлена скоро!',
             'tower_bag':     '🎒 Рюкзак будет добавлен скоро!',
             'tower_records': '🏆 Рекорды будут добавлены скоро!',
         }
         bot.answer_callback_query(call.id, labels.get(call.data, '🔧 В разработке'), show_alert=True)
+
+    # ── Улучшение характеристик ───────────────────────────────
+
+    def cp_cost(current_val):
+        """Стоимость улучшения характеристики с текущего уровня"""
+        if current_val < 5:   return 1
+        if current_val < 10:  return 2
+        if current_val < 15:  return 3
+        return 4
+
+    def upgrade_text(char):
+        cls = CLASSES[char['class_key']]
+        max_hp = calc_max_hp(char)
+        max_mp = calc_max_mp(char)
+        safe_name = char['char_name'].replace('_', '\\_').replace('*', '\\*')
+
+        def stat_line(key, label):
+            val = char[key]
+            cost = cp_cost(val)
+            maxed = " *(МАКС)*" if val >= 20 else f" *({cost} ОХ)*"
+            return f"{label}: *{val}*{maxed}"
+
+        return (
+            f"— – - ⬆️✨ УЛУЧШЕНИЕ ХАРАКТЕРИСТИК ✨⬆️ - – —\n\n"
+            f"Имя: *{safe_name}*\n"
+            f"Класс: {cls['emoji']} {cls['name']}\n"
+            f"⭐ Уровень: *{char['level']}*\n\n"
+            f"🪙 Очки Характеристик: *{char['stat_points']}*\n\n"
+            f"━━━━━━━━━━━━━━━━\n\n"
+            f"❤️ ХП: *{char['hp']}/{max_hp}*\n"
+            f"⚡ Макс. Мана: *{max_mp}*\n\n"
+            f"{stat_line('strength',     '💪 Сила')}\n\n"
+            f"{stat_line('agility',      '🎯 Ловкость')}\n\n"
+            f"{stat_line('intellect',    '🧠 Интеллект')}\n\n"
+            f"{stat_line('constitution', '🫀 Телосложение')}\n\n"
+            f"{stat_line('charisma',     '👄 Харизма')}\n\n"
+            f"━━━━━━━━━━━━━━━━"
+        )
+
+    def upgrade_keyboard():
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            InlineKeyboardButton("+ 💪 Сила",          callback_data="tower_up_strength"),
+            InlineKeyboardButton("+ 🎯 Ловкость",       callback_data="tower_up_agility"),
+            InlineKeyboardButton("+ 🧠 Интеллект",      callback_data="tower_up_intellect"),
+            InlineKeyboardButton("+ 🫀 Телосложение",   callback_data="tower_up_constitution"),
+            InlineKeyboardButton("+ 👄 Харизма",        callback_data="tower_up_charisma"),
+            InlineKeyboardButton("🔙 Назад",            callback_data="tower_back"),
+        )
+        return markup
+
+    @bot.callback_query_handler(func=lambda call: call.data == 'tower_upgrade')
+    def cb_tower_upgrade(call):
+        bot.answer_callback_query(call.id)
+        char = get_tower_char(call.from_user.id)
+        if not char:
+            bot.answer_callback_query(call.id, "❌ Персонаж не найден!", show_alert=True)
+            return
+        bot.send_message(
+            call.message.chat.id,
+            upgrade_text(char),
+            reply_markup=upgrade_keyboard(),
+            parse_mode='Markdown'
+        )
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith('tower_up_'))
+    def cb_tower_up_stat(call):
+        bot.answer_callback_query(call.id)
+        user_id = call.from_user.id
+        stat_key = call.data.replace('tower_up_', '')
+
+        stat_labels = {
+            'strength':     '💪 Сила',
+            'agility':      '🎯 Ловкость',
+            'intellect':    '🧠 Интеллект',
+            'constitution': '🫀 Телосложение',
+            'charisma':     '👄 Харизма',
+        }
+        if stat_key not in stat_labels:
+            return
+
+        char = get_tower_char(user_id)
+        if not char:
+            return
+
+        old_val = char[stat_key]
+
+        if old_val >= 20:
+            bot.send_message(call.message.chat.id,
+                f"❌ *{stat_labels[stat_key]}* уже на максимальном уровне (20)!",
+                parse_mode='Markdown')
+            return
+
+        cost = cp_cost(old_val)
+        if char['stat_points'] < cost:
+            bot.send_message(call.message.chat.id,
+                f"❌ Недостаточно Очков Характеристик!\n"
+                f"Нужно: *{cost} ОХ*, у тебя: *{char['stat_points']} ОХ*",
+                parse_mode='Markdown')
+            return
+
+        new_val = old_val + 1
+        new_points = char['stat_points'] - cost
+
+        conn = get_conn()
+        c = conn.cursor()
+        c.execute(f'''UPDATE tower_chars SET {stat_key}=%s, stat_points=%s
+                      WHERE user_id=%s''', (new_val, new_points, user_id))
+        conn.commit()
+        conn.close()
+
+        char = get_tower_char(user_id)
+
+        bot.send_message(call.message.chat.id,
+            f"– 🆙 *{stat_labels[stat_key]} повышена!* –\n\n"
+            f"{old_val} ➡️ *{new_val}*\n\n"
+            f"🪙 Очков Характеристик: *{new_points}*",
+            parse_mode='Markdown')
+
+        bot.send_message(
+            call.message.chat.id,
+            upgrade_text(char),
+            reply_markup=upgrade_keyboard(),
+            parse_mode='Markdown'
+        )
+
+    @bot.callback_query_handler(func=lambda call: call.data == 'tower_back')
+    def cb_tower_back(call):
+        bot.answer_callback_query(call.id)
+        char = get_tower_char(call.from_user.id)
+        if not char:
+            return
+        bot.send_message(
+            call.message.chat.id,
+            tower_main_text(char),
+            reply_markup=tower_main_keyboard(),
+            parse_mode='Markdown'
+        )
