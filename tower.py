@@ -1154,7 +1154,7 @@ def register_tower(bot):
 
     # ── Заглушки ──────────────────────────────────────────────
 
-    @bot.callback_query_handler(func=lambda call: call.data in ['tower_start','tower_skills','tower_records'])
+    @bot.callback_query_handler(func=lambda call: call.data in ['tower_skills','tower_records'])
     def cb_stub(call):
         labels = {
             'tower_start':   '⚔️ Режим прохождения башни будет добавлен скоро!',
