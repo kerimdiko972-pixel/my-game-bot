@@ -1189,27 +1189,44 @@ def register_tower(bot):
     def cb_delete_cancel(call):
         bot.answer_callback_query(call.id, "Отменено")
 
-    # ── Заглушки ──────────────────────────────────────────────
-@bot.callback_query_handler(func=lambda call: call.data in ['tower_skills'])
-def cb_stub(call):
-    bot.answer_callback_query(call.id, '📜 Система навыков будет добавлена скоро!', show_alert=True)
+# ── Заглушки ──────────────────────────────────────────────
+    @bot.callback_query_handler(func=lambda call: call.data in ['tower_skills'])
+    def cb_stub(call):
+        bot.answer_callback_query(
+            call.id,
+            '📜 Система навыков будет добавлена скоро!',
+            show_alert=True
+        )
 
-@bot.callback_query_handler(func=lambda call: call.data == 'tower_records')
-def cb_tower_records(call):
-    bot.answer_callback_query(call.id)
-    uname = call.from_user.username
-    if uname:
-        save_username(call.from_user.id, uname)
-    rows = get_leaderboard(10)
-    if not rows:
-        bot.send_message(call.message.chat.id, "🏆 Рекордов пока нет. Будь первым!")
-        return
-    medals = ['🥇','🥈','🥉']
-    lines = ['— – ‐ 🏆 *РЕКОРДЫ* 🏆 ‐ – —\n']
-    for i, (username, char_name, class_key, level, best_floor) in enumerate(rows, 1):
-        cls = CLASSES.get(class_key, {})
-        cls_emoji = cls.get('emoji', '❓')
-        name_str = f"@{username}" if username else f"#{i}"
-        medal = medals[i-1] if i <= 3 else f"{i}."
-        lines.append(f"{medal} {name_str} — {cls_emoji} {safe(char_name)} {level} — 🏯 {best_floor}")
-    bot.send_message(call.message.chat.id, "\n".join(lines), parse_mode='Markdown')
+    @bot.callback_query_handler(func=lambda call: call.data == 'tower_records')
+    def cb_tower_records(call):
+        bot.answer_callback_query(call.id)
+
+        uname = call.from_user.username
+        if uname:
+            save_username(call.from_user.id, uname)
+
+        rows = get_leaderboard(10)
+
+        if not rows:
+            bot.send_message(call.message.chat.id, "🏆 Рекордов пока нет. Будь первым!")
+            return
+
+        medals = ['🥇','🥈','🥉']
+        lines = ['— – ‐ 🏆 *РЕКОРДЫ* 🏆 ‐ – —\n']
+
+        for i, (username, char_name, class_key, level, best_floor) in enumerate(rows, 1):
+            cls = CLASSES.get(class_key, {})
+            cls_emoji = cls.get('emoji', '❓')
+            name_str = f"@{username}" if username else f"#{i}"
+            medal = medals[i-1] if i <= 3 else f"{i}."
+
+            lines.append(
+                f"{medal} {name_str} — {cls_emoji} {safe(char_name)} {level} — 🏯 {best_floor}"
+            )
+
+        bot.send_message(
+            call.message.chat.id,
+            "\n".join(lines),
+            parse_mode='Markdown'
+        )
