@@ -5,7 +5,7 @@ import json
 import random
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from tower import (
-    get_conn, create_tower_char, calc_max_hp, calc_max_mp,
+    get_conn, get_tower_char, calc_max_hp, calc_max_mp,
     WEAPONS, SPELLS, CONSUMABLES, CLASSES, SPELL_CLASSES,
     get_items, save_items, get_mod, safe
 )
