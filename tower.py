@@ -645,20 +645,29 @@ def register_tower(bot):
 
     @bot.message_handler(commands=['tower'])
     def cmd_tower(message):
-    uid = message.from_user.id
-    uname = message.from_user.username
-    char = get_tower_char(uid)
-    if uname and char:
-        save_username(uid, uname)
-    if not char:
+        uid = message.from_user.id
+        uname = message.from_user.username
+        char = get_tower_char(uid)
+
+        if uname and char:
+            save_username(uid, uname)
+
+        if not char:
             markup = InlineKeyboardMarkup()
             markup.add(InlineKeyboardButton("👤 Создать", callback_data="tower_create"))
-            bot.send_message(message.chat.id,
+
+            bot.send_message(
+                message.chat.id,
                 "— – - 🏯 БАШНЯ ХАОСА 🏯 - – —\n\n❌ У тебя ещё не создан персонаж",
-                reply_markup=markup)
+                reply_markup=markup
+            )
         else:
-            bot.send_message(message.chat.id, tower_main_text(char),
-                reply_markup=tower_main_keyboard(char), parse_mode='Markdown')
+            bot.send_message(
+                message.chat.id,
+                tower_main_text(char),
+                reply_markup=tower_main_keyboard(char),
+                parse_mode='Markdown'
+            )
 
     @bot.callback_query_handler(func=lambda call: call.data == 'tower_create')
     def cb_create(call):
