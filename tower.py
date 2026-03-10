@@ -340,6 +340,7 @@ def init_tower_tables():
     c.execute('''
         CREATE TABLE IF NOT EXISTS tower_chars (
             user_id         BIGINT PRIMARY KEY,
+            username        TEXT DEFAULT NULL,
             char_name       TEXT,
             class_key       TEXT,
             level           INTEGER DEFAULT 1,
@@ -383,6 +384,29 @@ def init_tower_tables():
     conn.commit()
     conn.close()
     print("Таблица tower_chars инициализирована!")
+
+def save_username(user_id, username):
+    if not username:
+        return
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute('UPDATE tower_chars SET username=%s WHERE user_id=%s', (username, user_id))
+    conn.commit()
+    conn.close()
+
+def get_leaderboard(limit=10):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute('''
+        SELECT username, char_name, class_key, level, best_floor
+        FROM tower_chars
+        WHERE best_floor > 0
+        ORDER BY best_floor DESC
+        LIMIT %s
+    ''', (limit,))
+    rows = c.fetchall()
+    conn.close()
+    return rows
 
 def get_tower_char(user_id):
     conn = get_conn()
@@ -621,8 +645,12 @@ def register_tower(bot):
 
     @bot.message_handler(commands=['tower'])
     def cmd_tower(message):
-        char = get_tower_char(message.from_user.id)
-        if not char:
+    uid = message.from_user.id
+    uname = message.from_user.username
+    char = get_tower_char(uid)
+    if uname and char:
+        save_username(uid, uname)
+    if not char:
             markup = InlineKeyboardMarkup()
             markup.add(InlineKeyboardButton("👤 Создать", callback_data="tower_create"))
             bot.send_message(message.chat.id,
@@ -1153,12 +1181,26 @@ def register_tower(bot):
         bot.answer_callback_query(call.id, "Отменено")
 
     # ── Заглушки ──────────────────────────────────────────────
+@bot.callback_query_handler(func=lambda call: call.data in ['tower_skills'])
+def cb_stub(call):
+    bot.answer_callback_query(call.id, '📜 Система навыков будет добавлена скоро!', show_alert=True)
 
-    @bot.callback_query_handler(func=lambda call: call.data in ['tower_skills','tower_records'])
-    def cb_stub(call):
-        labels = {
-            'tower_start':   '⚔️ Режим прохождения башни будет добавлен скоро!',
-            'tower_skills':  '📜 Система навыков будет добавлена скоро!',
-            'tower_records': '🏆 Рекорды будут добавлены скоро!',
-        }
-        bot.answer_callback_query(call.id, labels.get(call.data, '🔧 В разработке'), show_alert=True)
+@bot.callback_query_handler(func=lambda call: call.data == 'tower_records')
+def cb_tower_records(call):
+    bot.answer_callback_query(call.id)
+    uname = call.from_user.username
+    if uname:
+        save_username(call.from_user.id, uname)
+    rows = get_leaderboard(10)
+    if not rows:
+        bot.send_message(call.message.chat.id, "🏆 Рекордов пока нет. Будь первым!")
+        return
+    medals = ['🥇','🥈','🥉']
+    lines = ['— – ‐ 🏆 *РЕКОРДЫ* 🏆 ‐ – —\n']
+    for i, (username, char_name, class_key, level, best_floor) in enumerate(rows, 1):
+        cls = CLASSES.get(class_key, {})
+        cls_emoji = cls.get('emoji', '❓')
+        name_str = f"@{username}" if username else f"#{i}"
+        medal = medals[i-1] if i <= 3 else f"{i}."
+        lines.append(f"{medal} {name_str} — {cls_emoji} {safe(char_name)} {level} — 🏯 {best_floor}")
+    bot.send_message(call.message.chat.id, "\n".join(lines), parse_mode='Markdown')
