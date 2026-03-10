@@ -340,7 +340,6 @@ def init_tower_tables():
     c.execute('''
         CREATE TABLE IF NOT EXISTS tower_chars (
             user_id         BIGINT PRIMARY KEY,
-            username        TEXT DEFAULT NULL,
             char_name       TEXT,
             class_key       TEXT,
             level           INTEGER DEFAULT 1,
@@ -378,6 +377,7 @@ def init_tower_tables():
         ("owned_armors","TEXT DEFAULT '[\"Лёгкая одежда\"]'"),("owned_artifacts","TEXT DEFAULT '[]'"),
         ("learned_spells","TEXT DEFAULT '[]'"),("spell_slot_1","TEXT DEFAULT NULL"),
         ("spell_slot_2","TEXT DEFAULT NULL"),("spell_slot_3","TEXT DEFAULT NULL"),
+        ("username","TEXT DEFAULT NULL"),
     ]:
         try: c.execute(f"ALTER TABLE tower_chars ADD COLUMN {col} {defval}"); conn.commit()
         except: conn.rollback()
