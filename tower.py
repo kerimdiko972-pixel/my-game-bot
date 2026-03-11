@@ -874,28 +874,74 @@ def register_tower(bot):
         bot.send_message(call.message.chat.id, bag_text(char),
             reply_markup=bag_keyboard(), parse_mode='Markdown')
 
-    @bot.callback_query_handler(func=lambda call: call.data == 'tower_examine')
+    EXAMINE_PAGE_SIZE = 8  # кнопок на страницу
+
+    @bot.callback_query_handler(func=lambda call: call.data == 'tower_examine' or call.data.startswith('tower_examine_p'))
     def cb_examine(call):
         bot.answer_callback_query(call.id)
         char = get_tower_char(call.from_user.id)
         if not char: return
+
+    # Определяем страницу
+        if call.data.startswith('tower_examine_p'):
+            page = int(call.data.replace('tower_examine_p', ''))
+        else:
+            page = 0
+
+    # Собираем все кнопки: расходники + оружия
+        all_buttons = []
+
         items = get_items(char)
-        try: bot.delete_message(call.message.chat.id, call.message.message_id)
-        except: pass
-        if not items:
-            markup = InlineKeyboardMarkup()
-            markup.add(InlineKeyboardButton("🔙 Назад", callback_data="tower_bag"))
-            bot.send_message(call.message.chat.id, "— Содержимое рюкзака: —\n\nРюкзак пуст 😔", reply_markup=markup)
-            return
-        markup = InlineKeyboardMarkup(row_width=1)
         for key, count in items.items():
             cd = CONSUMABLES.get(key)
             if cd:
                 label = f"{cd['emoji']} {cd['name']}"
                 if count > 1: label += f" ×{count}"
-                markup.add(InlineKeyboardButton(label, callback_data=f"tower_item_info_{key}"))
-        markup.add(InlineKeyboardButton("🔙 Назад", callback_data="tower_bag"))
-        bot.send_message(call.message.chat.id, "— Содержимое рюкзака: —", reply_markup=markup)
+                all_buttons.append((label, f"tower_item_info_{key}"))
+
+        owned = get_owned_list(char, 'owned_weapons')
+        current_weapon = char.get('weapon')
+        for wkey in owned:
+            w = WEAPONS.get(wkey)
+            if not w: continue
+            equipped = " ✅" if wkey == current_weapon else ""
+            label = f"{w['rarity']} {w['name']}{equipped}"
+            all_buttons.append((label, f"tower_weapon_info_{wkey}"))
+
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
+
+        if not all_buttons:
+            markup = InlineKeyboardMarkup()
+            markup.add(InlineKeyboardButton("🔙 Назад", callback_data="tower_bag"))
+            bot.send_message(call.message.chat.id, "— Содержимое рюкзака: —\n\nРюкзак пуст 😔", reply_markup=markup)
+            return
+
+    # Пагинация
+        total = len(all_buttons)
+        total_pages = (total + EXAMINE_PAGE_SIZE - 1) // EXAMINE_PAGE_SIZE
+        page = max(0, min(page, total_pages - 1))
+        start = page * EXAMINE_PAGE_SIZE
+        page_items = all_buttons[start:start + EXAMINE_PAGE_SIZE]
+
+        markup = InlineKeyboardMarkup(row_width=1)
+        for label, cb_data in page_items:
+            markup.add(InlineKeyboardButton(label, callback_data=cb_data))
+
+    # Кнопки пагинации
+        nav = []
+        if page > 0:
+            nav.append(InlineKeyboardButton("◀️ Назад", callback_data=f"tower_examine_p{page-1}"))
+        if page < total_pages - 1:
+            nav.append(InlineKeyboardButton("▶️ Вперёд", callback_data=f"tower_examine_p{page+1}"))
+        if nav:
+            markup.row(*nav)
+
+        markup.add(InlineKeyboardButton("🔙 В рюкзак", callback_data="tower_bag"))
+
+        page_str = f" (стр. {page+1}/{total_pages})" if total_pages > 1 else ""
+        bot.send_message(call.message.chat.id,
+            f"— Содержимое рюкзака{page_str} —", reply_markup=markup)
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith('tower_item_info_'))
     def cb_item_info(call):
