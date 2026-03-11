@@ -943,26 +943,40 @@ def register_tower(bot):
         bot.send_message(call.message.chat.id,
             f"— Содержимое рюкзака{page_str} —", reply_markup=markup)
 
-    @bot.callback_query_handler(func=lambda call: call.data.startswith('tower_item_info_'))
-    def cb_item_info(call):
-        bot.answer_callback_query(call.id)
-        ikey = call.data.replace('tower_item_info_', '')
-        char = get_tower_char(call.from_user.id)
-        if not char: return
-        items = get_items(char)
-        count = items.get(ikey, 0)
-        cd = CONSUMABLES.get(ikey)
-        if not cd: return
-        markup = InlineKeyboardMarkup(row_width=2)
-        markup.add(
-            InlineKeyboardButton(f"{cd['emoji']} Использовать", callback_data=f"tower_use_{ikey}"),
-            InlineKeyboardButton("🔙 Назад", callback_data="tower_examine"),
-        )
-        try: bot.delete_message(call.message.chat.id, call.message.message_id)
-        except: pass
-        bot.send_message(call.message.chat.id,
-            f"{cd['emoji']} *{cd['name']}*\nКоличество: *{count}*\n\n{cd['desc']}",
-            reply_markup=markup, parse_mode='Markdown')
+    @bot.callback_query_handler(func=lambda call: call.data.startswith('tower_weapon_info_'))
+def cb_weapon_info(call):
+    bot.answer_callback_query(call.id)
+    wkey = call.data.replace('tower_weapon_info_', '')
+    char = get_tower_char(call.from_user.id)
+    if not char or wkey not in WEAPONS: return
+    w = WEAPONS[wkey]
+    dmg = w['damage'](char)
+    effect_str = w.get('effect') or 'Нет'
+
+    # Получаем описание эффекта из tower_treasury если есть
+    try:
+        from tower_treasury import WEAPON_EFFECT_DATA, _describe_effects
+        eff_list = WEAPON_EFFECT_DATA.get(wkey, [])
+        if eff_list:
+            effect_str = _describe_effects(eff_list) or effect_str
+    except: pass
+
+    equipped = char.get('weapon') == wkey
+    markup = InlineKeyboardMarkup(row_width=2)
+    if not equipped:
+        markup.add(InlineKeyboardButton("⚔️ Экипировать", callback_data=f"tower_do_equip_weapon_{wkey}"))
+    markup.add(InlineKeyboardButton("🔙 Назад", callback_data="tower_examine"))
+
+    text = (
+        f"{w['rarity']} *{w['name']}*\n"
+        f"📊 Редкость: {w['rarity_name']}\n"
+        f"⚔️ Урон: ~{dmg} ({w['desc_template']})\n"
+        f"✨ Эффект: {effect_str}\n"
+        f"{'✅ Экипировано' if equipped else ''}"
+    )
+    try: bot.delete_message(call.message.chat.id, call.message.message_id)
+    except: pass
+    bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode='Markdown')
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith('tower_use_'))
     def cb_use_item(call):
