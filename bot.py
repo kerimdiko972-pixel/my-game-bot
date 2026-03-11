@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask
 from config import BOT_TOKEN
+from slot_machine import sm_spin, sm_check_wins, sm_render_grid, sm_win_line, sm_total
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, use_class_middlewares=True)
 app = Flask(__name__)
@@ -233,40 +234,7 @@ def random_pet():
     return random.choice(PETS[chosen_group]["pets"]), chosen_group
 
 # ===== СЛОТ МАШИНА =====
-SLOT_SYMBOLS = [
-    ("🍒", 30),
-    ("🍋", 25),
-    ("🍀", 18),
-    ("🔔", 12),
-    ("💎", 10),
-    ("🌟", 5),
-]
-
-SLOT_TWO_MULTIPLIERS = {
-    "🍒": 1.5,
-    "🍋": 1.8,
-    "🍀": 2.0,
-    "🔔": 3.0,
-    "💎": 4.0,
-    "🌟": 5.0,
-}
-
-SLOT_THREE_MULTIPLIERS = {
-    "🍒": 3.0,
-    "🍋": 3.5,
-    "🍀": 4.0,
-    "🔔": 4.5,
-    "💎": 7.0,
-    "🌟": 10.0,
-}
-
-# Хранилище ставок: {user_id: bet}
-pending_bets = {}
-
-def spin_slot():
-    symbols = [s for s, _ in SLOT_SYMBOLS]
-    weights = [w for _, w in SLOT_SYMBOLS]
-    return random.choices(symbols, weights=weights, k=3)
+pending_slots = {}
 
 pending_dice = {}
 # Структура: {user_id: {'bet': int, 'round': int, 'accumulated': int, 'status': str}}
@@ -1284,36 +1252,47 @@ def handle_dice_bet_input(message):
         reply_markup=markup
     )
 
-# Обработка текстового ввода ставки для слотов
-@bot.message_handler(func=lambda message: message.from_user.id in pending_bets and pending_bets[message.from_user.id] == 'waiting')
-def handle_bet_input(message):
-    user_id = message.from_user.id
-    user = get_user(user_id)
-    money = user[2] if user else 0
+# ── Слот: ввод ставки текстом ──────────────────────────────────────────────
+@bot.message_handler(func=lambda message: (
+    message.from_user.id in pending_slots and
+    pending_slots[message.from_user.id].get('status') == 'waiting_bet'
+))
+def handle_slot_bet_input(message):
+    user_id  = message.from_user.id
+    user     = get_user(user_id)
+    money    = user[2] if user else 0
+    sep      = "— – - - - - - - - - - - - - - - - - - - - – —"
+    header   = "— – - 🎰 СЛОТ-МАШИНА 🎰 - – —"
+
     try:
         bet = int(message.text.strip())
     except ValueError:
-        bot.send_message(message.chat.id, "❌ Введи число! Например: 500")
+        bot.send_message(message.chat.id, "❌ Введи целое число! Например: 500")
         return
-    if bet < 100:
-        bot.send_message(message.chat.id, "❌ Минимальная ставка 💵100!")
+
+    if bet < 250:
+        bot.send_message(message.chat.id, "❌ Минимальная ставка 💵250!")
         return
     if bet > money:
-        bot.send_message(message.chat.id, f"❌ Недостаточно средств! У тебя только 💵{money}")
+        bot.send_message(message.chat.id,
+            f"❌ Недостаточно средств! У тебя только 💵{money}")
         return
+
     spend_money(user_id, bet)
-    pending_bets[user_id] = bet
-    sep = "– – – – – – – – – – – – – – –"
+    money_after = money - bet
+    pending_slots[user_id] = {'status': 'ready', 'bet': bet}
+
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
-        InlineKeyboardButton("Крутить 🎰", callback_data="slot_spin"),
-        InlineKeyboardButton("Отмена ❌",  callback_data="slot_cancel"),
+        InlineKeyboardButton("🎰 КРУТИТЬ 🎰", callback_data="slot_spin"),
+        InlineKeyboardButton("❌ Отмена",      callback_data="slot_cancel"),
     )
     bot.send_message(
         message.chat.id,
-        f"🎰 СЛОТ МАШИНА 🎰\n{sep}\n"
-        f"Ставка: 💵 {bet}\n{sep}\n\n"
-        f"| ❔ | ❔ | ❔ |",
+        f"{header}\n\n"
+        f"Денег: 💵 {money_after}\n\n"
+        f"Ставка: 💰 {bet}\n\n"
+        f"{sep}",
         reply_markup=markup
     )
 
@@ -1531,146 +1510,201 @@ def callback_open_treasure(call):
         f"🧳 *Сокровище открыто!*\n\n{result_text}", parse_mode='Markdown')
 
 # --- Казино ---
+# ── Слот: открытие меню ────────────────────────────────────────────────────
 @bot.callback_query_handler(func=lambda call: call.data == 'casino_slots')
 def callback_casino_slots(call):
     user_id = call.from_user.id
-    pending_dice.pop(user_id, None)
-    pending_bets[user_id] = 'waiting'
-    sep = "– – – – – – – – – – – – – – –"
+    user    = get_user(user_id)
+    money   = user[2] if user else 0
+    sep     = "• – – – – – – – – – – – – – – – – – – •"
+    header  = "— – - 🎰 СЛОТ-МАШИНА 🎰 - – —"
+
+    pending_slots[user_id] = {'status': 'waiting_bet'}
+
     bot.send_message(
         call.message.chat.id,
-        f"🎰 СЛОТ МАШИНА 🎰\n{sep}\n"
-        f"Напиши ставку 💵 денег которую хочешь поставить на игру (мин. 100)."
+        f"{header}\n\n"
+        f"Денег: 💵 {money}\n\n"
+        f"{sep}\n\n"
+        f"Напиши ставку денег которую хочешь поставить на игру (мин. 250).\n\n"
+        f"— – - - - - - - - - - - - - - - - - - - - – —"
     )
     bot.answer_callback_query(call.id)
 
+
+# ── Слот: отмена ──────────────────────────────────────────────────────────
 @bot.callback_query_handler(func=lambda call: call.data == 'slot_cancel')
 def callback_slot_cancel(call):
     user_id = call.from_user.id
-    bet = pending_bets.pop(user_id, 0)
-    if isinstance(bet, int) and bet > 0:
-        add_money(user_id, bet)
+    data    = pending_slots.pop(user_id, None)
+
+    if data and data.get('bet'):
+        add_money(user_id, data['bet'])
         try:
             bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
-        bot.send_message(
-            call.message.chat.id,
-            f"Игра отменена ❌\nВозвращённая ставка: +💵{bet}"
-        )
+        bot.send_message(call.message.chat.id,
+            f"Игра отменена ❌\nВозвращено: +💵{data['bet']}")
+    else:
+        try:
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
+        bot.send_message(call.message.chat.id, "Игра отменена ❌")
+
     bot.answer_callback_query(call.id)
 
+
+# ── Слот: крутить ─────────────────────────────────────────────────────────
 @bot.callback_query_handler(func=lambda call: call.data == 'slot_spin')
 def callback_slot_spin(call):
     user_id = call.from_user.id
-    bet = pending_bets.get(user_id)
+    data    = pending_slots.get(user_id)
 
-    if not isinstance(bet, int) or bet <= 0:
+    if not data or data.get('status') != 'ready':
         bot.answer_callback_query(call.id, "❌ Ставка не найдена!")
         return
 
-    bot.answer_callback_query(call.id)
-    sep = "– – – – – – – – – – – – – – –"
-    slots = spin_slot()
+    bet     = data['bet']
+    user    = get_user(user_id)
+    money   = user[2] if user else 0
+    sep     = "— – - - - - - - - - - - - - - - - - - - - – —"
+    header  = (
+        f"— – - 🎰 СЛОТ-МАШИНА 🎰 - – —\n\n"
+        f"Денег: 💵 {money}\n\n"
+        f"Ставка: 💰 {bet}\n\n"
+        f"{sep}"
+    )
 
+    bot.answer_callback_query(call.id)
+
+    # Генерируем сетку
+    grid = sm_spin()
+
+    # Показываем пустую сетку
     try:
         bot.edit_message_text(
-            f"🎰 СЛОТ МАШИНА 🎰\n{sep}\nСтавка: 💵 {bet}\n{sep}\n\n| {slots[0]} | ❔ | ❔ |",
+            f"{header}\n\n{sm_render_grid(grid, 0)}\n\n{sep}",
             chat_id=call.message.chat.id,
             message_id=call.message.message_id
         )
-        time.sleep(0.7)
-        bot.edit_message_text(
-            f"🎰 СЛОТ МАШИНА 🎰\n{sep}\nСтавка: 💵 {bet}\n{sep}\n\n| {slots[0]} | {slots[1]} | ❔ |",
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id
-        )
-        time.sleep(0.7)
-        bot.edit_message_text(
-            f"🎰 СЛОТ МАШИНА 🎰\n{sep}\nСтавка: 💵 {bet}\n{sep}\n\n| {slots[0]} | {slots[1]} | {slots[2]} |",
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id
-        )
+    except: pass
+
+    # Анимация: открываем столбец за столбцом
+    import time
+    for col in range(1, 6):
         time.sleep(0.5)
-    except Exception as e:
-        print(f"Анимация ошибка: {e}")
+        try:
+            bot.edit_message_text(
+                f"{header}\n\n{sm_render_grid(grid, col)}\n\n{sep}",
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id
+            )
+        except: pass
 
-    winnings = 0
-    result_text = ""
+    # Проверяем комбинации
+    wins      = sm_check_wins(grid)
+    grid_text = sm_render_grid(grid, 5)
+    win_lines = []
+    total     = sm_total(wins, bet)
 
-    counts = {}
-    for s in slots:
-        counts[s] = counts.get(s, 0) + 1
+    # Показываем комбинации одну за другой
+    time.sleep(0.3)
+    for win in wins:
+        win_lines.append(sm_win_line(win, bet))
+        try:
+            bot.edit_message_text(
+                f"{header}\n\n{grid_text}\n\n" +
+                "\n".join(win_lines) + f"\n\n{sep}",
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id
+            )
+        except: pass
+        time.sleep(0.3)
 
-    triple = None
-    double = None
-    for symbol, count in counts.items():
-        if count == 3:
-            triple = symbol
-        elif count == 2:
-            double = symbol
-
-    if triple:
-        multiplier = SLOT_THREE_MULTIPLIERS[triple]
-        winnings = int(bet * multiplier)
-        result_text = (
-            f"TRI {triple}{triple}{triple}\n"
-            f"💵{bet} x {multiplier} = {winnings}\n\n"
-            f"Получено: +{winnings} 💵"
-        )
-    elif double:
-        multiplier = SLOT_TWO_MULTIPLIERS[double]
-        winnings = int(bet * multiplier)
-        result_text = (
-            f"Комбо из двух {double}{double}\n"
-            f"💵{bet} x {multiplier} = {winnings}\n\n"
-            f"Получено: +{winnings} 💵"
-        )
+    # Финальное сообщение
+    if total > 0:
+        result_text = f"💰 Общий выигрыш: {total} 💵 💰"
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton(
+            f"💰 Забрать +{total} 💵", callback_data="slot_collect"
+        ))
+        pending_slots[user_id] = {'status': 'finished', 'winnings': total}
     else:
-        result_text = f"Нет совпадений\n\nПотеряно: -{bet} 💵"
-
-    if winnings > 0:
-        add_money(user_id, winnings)
-
-    pending_bets.pop(user_id, None)
-    conn2 = get_conn()
-    c2 = conn2.cursor()
-    c2.execute('UPDATE users SET casino_games=casino_games+1 WHERE user_id=%s', (user_id,))
-    if winnings > 0:
-        c2.execute('UPDATE users SET casino_winnings=casino_winnings+%s WHERE user_id=%s', (winnings, user_id))
-    conn2.commit()
-    conn2.close()
-    check_and_give_achievements(user_id, call.message.chat.id)
-
-    user_now = get_user(user_id)
-    money_now = user_now[2] if user_now else 0
-
-    markup = None
-    if winnings == 0:
+        result_text = "😔 Нет комбинаций"
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("❌ Закрыть", callback_data="slot_close"))
+        pending_slots.pop(user_id, None)
+
+    wins_text = ("\n".join(win_lines) + "\n\n") if win_lines else ""
 
     try:
         bot.edit_message_text(
-            f"🎰 СЛОТ МАШИНА 🎰\n{sep}\n"
-            f"Ставка: 💵 {bet}\n{sep}\n\n"
-            f"| {slots[0]} | {slots[1]} | {slots[2]} |\n\n"
+            f"— – - 🎰 СЛОТ-МАШИНА 🎰 - – —\n\n"
+            f"Денег: 💵 {money}\n\n"
+            f"Ставка: 💰 {bet}\n\n"
+            f"{sep}\n"
+            f"          🔥 ИГРА ОКОНЧЕНА 🔥\n\n"
+            f"{grid_text}\n\n"
+            f"{wins_text}"
             f"{result_text}\n\n"
-            f"💵 Баланс: {money_now}",
+            f"{sep}",
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
             reply_markup=markup
         )
-    except Exception as e:
-        print(f"Финал ошибка: {e}")
-        bot.send_message(
-            call.message.chat.id,
-            f"🎰 Результат:\n| {slots[0]} | {slots[1]} | {slots[2]} |\n\n"
-            f"{result_text}\n\n💵 Баланс: {money_now}",
-            reply_markup=markup
-        )
+    except: pass
 
+    # Обновляем счётчики достижений
+    conn2 = get_conn()
+    c2    = conn2.cursor()
+    c2.execute('UPDATE users SET casino_games=casino_games+1 WHERE user_id=%s', (user_id,))
+    if total > 0:
+        c2.execute('UPDATE users SET casino_winnings=casino_winnings+%s WHERE user_id=%s',
+                   (total, user_id))
+    conn2.commit()
+    conn2.close()
+    threading.Thread(
+        target=check_and_give_achievements,
+        args=(user_id, call.message.chat.id),
+        daemon=True
+    ).start()
+
+# ── Слот: забрать выигрыш ─────────────────────────────────────────────────
+@bot.callback_query_handler(func=lambda call: call.data == 'slot_collect')
+def callback_slot_collect(call):
+    user_id  = call.from_user.id
+    data     = pending_slots.pop(user_id, None)
+    winnings = data['winnings'] if data else 0
+
+    if winnings > 0:
+        add_money(user_id, winnings)
+
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except: pass
+
+    # Возвращаем меню казино
+    user   = get_user(user_id)
+    money  = user[2] if user else 0
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton("🎰 Слот-Машина 🎰", callback_data="casino_slots"),
+        InlineKeyboardButton("🎲 Кубик-Бомба 💣",  callback_data="casino_dice"),
+    )
+    bot.send_message(
+        call.message.chat.id,
+        f"💰 Получено: +{winnings} 💵\n\n"
+        f"🎰💰 - К - А - З - И - Н - О - 💰🎰\n"
+        f"💵 Денег: {money}",
+        reply_markup=markup
+    )
+    bot.answer_callback_query(call.id)
+
+
+# ── Слот: закрыть (без выигрыша) ──────────────────────────────────────────
 @bot.callback_query_handler(func=lambda call: call.data == 'slot_close')
 def callback_slot_close(call):
+    pending_slots.pop(call.from_user.id, None)
     try:
         bot.delete_message(call.message.chat.id, call.message.message_id)
     except: pass
