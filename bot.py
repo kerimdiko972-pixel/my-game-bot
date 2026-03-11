@@ -58,6 +58,71 @@ RANK_ORDER = [
     (100000, "🔱Император🔱"),
 ]
 
+ACHIEVEMENTS = {
+    # Ключ: (название, колонка_в_users, [пороги], [награды])
+    # награда = {'money': X, 'exp': X, 'eggs': X}
+    'vegs_harvested': {
+        'title': '🥕 Сбор урожая',
+        'levels': [
+            (50,   "Новичок на грядке",  {'money': 500,   'exp': 200}),
+            (150,  "Любитель урожая",    {'money': 1200,  'exp': 450}),
+            (500,  "Фермер деревни",     {'money': 3500,  'exp': 1200, 'eggs': 1}),
+            (1500, "Хозяин огорода",     {'money': 9000,  'exp': 2500, 'eggs': 2}),
+            (5000, "Легенда грядок",     {'money': 25000, 'exp': 7000, 'eggs': 4}),
+        ]
+    },
+    'seeds_planted': {
+        'title': '🌱 Посев семян',
+        'levels': [
+            (20,   "Первая посадка",     {'money': 300,   'exp': 120}),
+            (75,   "Зелёные руки",       {'money': 900,   'exp': 350}),
+            (250,  "Садовод",            {'money': 2500,  'exp': 900,  'eggs': 1}),
+            (800,  "Мастер урожая",      {'money': 7000,  'exp': 2200, 'eggs': 2}),
+            (2500, "Повелитель огорода", {'money': 20000, 'exp': 6000, 'eggs': 4}),
+        ]
+    },
+    'fish_caught': {
+        'title': '🎣 Ловля рыбы',
+        'levels': [
+            (30,   "Первый улов",        {'money': 500,   'exp': 200}),
+            (120,  "Любитель рыбалки",   {'money': 1300,  'exp': 450}),
+            (400,  "Рыбак",              {'money': 3500,  'exp': 1200, 'eggs': 1}),
+            (1200, "Мастер удочки",      {'money': 10000, 'exp': 2600, 'eggs': 2}),
+            (4000, "Морской волк",       {'money': 28000, 'exp': 7000, 'eggs': 4}),
+        ]
+    },
+    'fishing_count': {
+        'title': '🪱 Установки наживок',
+        'levels': [
+            (15,   "Закинул удочку",     {'money': 300,   'exp': 120}),
+            (60,   "Терпеливый рыбак",   {'money': 900,   'exp': 350}),
+            (200,  "Охотник на рыбу",    {'money': 2600,  'exp': 900,  'eggs': 1}),
+            (650,  "Капитан сети",       {'money': 7000,  'exp': 2300, 'eggs': 2}),
+            (2000, "Легенда океана",     {'money': 20000, 'exp': 6500, 'eggs': 4}),
+        ]
+    },
+    'casino_games': {
+        'title': '🎰 Сыгранные игры',
+        'levels': [
+            (25,   "Азартный новичок",   {'money': 400,   'exp': 150}),
+            (100,  "Игрок",              {'money': 1100,  'exp': 400}),
+            (350,  "Любитель риска",     {'money': 3000,  'exp': 1000, 'eggs': 1}),
+            (1000, "Хозяин казино",      {'money': 9000,  'exp': 2500, 'eggs': 2}),
+            (3000, "Король азарта",      {'money': 25000, 'exp': 7000, 'eggs': 4}),
+        ]
+    },
+    'casino_winnings': {
+        'title': '💰 Выигранные деньги',
+        'levels': [
+            (2000,   "Первая удача",     {'exp': 200}),
+            (8000,   "Полоса везения",   {'exp': 500}),
+            (25000,  "Любимец фортуны", {'money': 2000,  'exp': 1200, 'eggs': 1}),
+            (80000,  "Магнат казино",   {'money': 6000,  'exp': 3000, 'eggs': 2}),
+            (250000, "Легенда казино",  {'money': 20000, 'exp': 8000, 'eggs': 5}),
+        ]
+    },
+}
+
 # Рыбалка
 FISH_CATCHES = [
     ("🐟",  540),
@@ -311,6 +376,30 @@ def init_db():
             for slot in range(1, 11):
                 c.execute('INSERT INTO garden (user_id, slot) VALUES (%s, %s) ON CONFLICT DO NOTHING', (uid, slot))
     except: pass
+        
+    new_columns = [
+        "ALTER TABLE users ADD COLUMN vegs_harvested INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN seeds_planted   INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN fish_caught     INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN fishing_count   INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN casino_games    INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN casino_winnings INTEGER DEFAULT 0",
+    ]
+    for sql in new_columns:
+        try:
+            c.execute(sql)
+            conn.commit()
+        except:
+            conn.rollback()
+
+    c.execute('''
+    CREATE TABLE IF NOT EXISTS user_achievements (
+        user_id   BIGINT,
+        stat_key  TEXT,
+        level     INTEGER,  -- 0..4 (индекс в списке levels)
+        PRIMARY KEY (user_id, stat_key)
+    )
+''')
 
     conn.commit()
     conn.close()
@@ -597,6 +686,57 @@ def get_ready_to_harvest():
     rows = c.fetchall()
     conn.close()
     return rows
+
+def check_and_give_achievements(user_id, chat_id):
+    conn = get_conn()
+    c = conn.cursor()
+
+    for stat_key, ach in ACHIEVEMENTS.items():
+        # Получаем текущее значение счётчика
+        c.execute(f'SELECT {stat_key} FROM users WHERE user_id=%s', (user_id,))
+        row = c.fetchone()
+        if not row:
+            continue
+        current_val = row[0] or 0
+
+        # Получаем текущий уровень достижения игрока
+        c.execute('SELECT level FROM user_achievements WHERE user_id=%s AND stat_key=%s',
+                  (user_id, stat_key))
+        ach_row = c.fetchone()
+        current_level = ach_row[0] if ach_row else -1
+
+        levels = ach['levels']
+        for i, (threshold, name, reward) in enumerate(levels):
+            if i <= current_level:
+                continue  # уже получено
+            if current_val >= threshold:
+                # Выдаём награду
+                money = reward.get('money', 0)
+                exp   = reward.get('exp', 0)
+                eggs  = reward.get('eggs', 0)
+                c.execute('''UPDATE users SET money=money+%s, exp=exp+%s, eggs=eggs+%s
+                             WHERE user_id=%s''', (money, exp, eggs, user_id))
+                # Сохраняем уровень
+                c.execute('''INSERT INTO user_achievements (user_id, stat_key, level) VALUES (%s,%s,%s)
+                             ON CONFLICT (user_id, stat_key) DO UPDATE SET level=%s''',
+                          (user_id, stat_key, i, i))
+                conn.commit()
+
+                # Уведомление
+                lines = []
+                if money: lines.append(f"+💵{money}")
+                if exp:   lines.append(f"+🌟{exp} опыта")
+                if eggs:  lines.append(f"+🥚{eggs}")
+                bot.send_message(
+                    chat_id,
+                    f"🏅 *Достижение выполнено!*\n\n"
+                    f"{ach['title']}\n"
+                    f"*\"{name}\"*\n\n"
+                    f"Награда: {' | '.join(lines)}",
+                    parse_mode='Markdown'
+                )
+
+    conn.close()
 
 # ===== ОГОРОД UI =====
 def garden_text(user_id):
@@ -1099,6 +1239,12 @@ def callback_plant(call):
     bot.edit_message_text(garden_text(user_id), chat_id=call.message.chat.id,
                           message_id=call.message.message_id, reply_markup=garden_keyboard(user_id))
     bot.answer_callback_query(call.id, "🌱 Семя посажено!")
+    conn2 = get_conn()
+    c2 = conn2.cursor()
+    c2.execute('UPDATE users SET seeds_planted=seeds_planted+1 WHERE user_id=%s', (user_id,))
+    conn2.commit()
+    conn2.close()
+    check_and_give_achievements(user_id, call.message.chat.id)
 
 # Обработка текстового ввода ставки для кубика (ПЕРВЫМ чтобы не перехватил слот)
 @bot.message_handler(func=lambda message: message.from_user.id in pending_dice and pending_dice[message.from_user.id].get('status') == 'waiting')
@@ -1195,6 +1341,12 @@ def callback_harvest(call):
     if veg:
         exp_gain = random.randint(20, 50)
         add_exp(user_id, exp_gain, call.message.chat.id)
+        conn2 = get_conn()
+        c2 = conn2.cursor()
+        c2.execute('UPDATE users SET vegs_harvested=vegs_harvested+1 WHERE user_id=%s', (user_id,))
+        conn2.commit()
+        conn2.close()
+        check_and_give_achievements(user_id, call.message.chat.id)
 
         bonus_worm = ""
         if random.randint(1, 10) == 1:
@@ -1258,6 +1410,12 @@ def callback_fish_start(call):
     bot.edit_message_text(fishing_text(user_id), chat_id=call.message.chat.id,
                           message_id=call.message.message_id, reply_markup=fishing_keyboard(user_id))
     bot.answer_callback_query(call.id, "🎣 Удочка заброшена!")
+    conn2 = get_conn()
+    c2 = conn2.cursor()
+    c2.execute('UPDATE users SET fishing_count=fishing_count+1 WHERE user_id=%s', (user_id,))
+    conn2.commit()
+    conn2.close()
+    check_and_give_achievements(user_id, call.message.chat.id)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('fish_wait_'))
 def callback_fish_wait(call):
@@ -1297,6 +1455,12 @@ def callback_fish_collect(call):
     )
     bot.edit_message_text(fishing_text(user_id), chat_id=call.message.chat.id,
                           message_id=call.message.message_id, reply_markup=fishing_keyboard(user_id))
+    conn2 = get_conn()
+    c2 = conn2.cursor()
+    c2.execute('UPDATE users SET fish_caught=fish_caught+3 WHERE user_id=%s', (user_id,))
+    conn2.commit()
+    conn2.close()
+    check_and_give_achievements(user_id, call.message.chat.id)
 
 # --- Открытие яйца из мешка ---
 @bot.callback_query_handler(func=lambda call: call.data == 'open_egg_bag')
@@ -1465,6 +1629,14 @@ def callback_slot_spin(call):
         add_money(user_id, winnings)
 
     pending_bets.pop(user_id, None)
+    conn2 = get_conn()
+    c2 = conn2.cursor()
+    c2.execute('UPDATE users SET casino_games=casino_games+1 WHERE user_id=%s', (user_id,))
+    if winnings > 0:
+        c2.execute('UPDATE users SET casino_winnings=casino_winnings+%s WHERE user_id=%s', (winnings, user_id))
+    conn2.commit()
+    conn2.close()
+    check_and_give_achievements(user_id, call.message.chat.id)
 
     user_now = get_user(user_id)
     money_now = user_now[2] if user_now else 0
@@ -1547,6 +1719,14 @@ def callback_dice_take(call):
         return
     winnings = int(data['accumulated'])
     add_money(user_id, winnings)
+    conn2 = get_conn()
+    c2 = conn2.cursor()
+    c2.execute('''UPDATE users SET casino_games=casino_games+1,
+                  casino_winnings=casino_winnings+%s WHERE user_id=%s''', (winnings, user_id))
+    conn2.commit()
+    conn2.close()
+    check_and_give_achievements(user_id, call.message.chat.id)
+    
     try:
         bot.delete_message(call.message.chat.id, call.message.message_id)
     except: pass
@@ -1598,6 +1778,13 @@ def callback_dice_throw(call):
         if current_round == 10:
             pending_dice.pop(user_id, None)
             add_money(user_id, new_accumulated)
+            conn2 = get_conn()
+            c2 = conn2.cursor()
+            c2.execute('''UPDATE users SET casino_games=casino_games+1,
+                          casino_winnings=casino_winnings+%s WHERE user_id=%s''', (new_accumulated, user_id))
+            conn2.commit()
+            conn2.close()
+            check_and_give_achievements(user_id, call.message.chat.id)
             bot.send_message(
                 call.message.chat.id,
                 f"| Выпало: {dice_value} |{lucky_text}\n\n"
@@ -2376,6 +2563,49 @@ def callback_battle_close(call):
     try: bot.delete_message(call.message.chat.id, call.message.message_id)
     except: pass
     bot.answer_callback_query(call.id)
+
+@bot.message_handler(commands=['achievements'])
+def cmd_achievements(message):
+    user_id = message.from_user.id
+    username = message.from_user.username or message.from_user.first_name
+    register_user(user_id, username)
+
+    conn = get_conn()
+    c = conn.cursor()
+
+    # Получаем все счётчики за раз
+    cols = ', '.join(ACHIEVEMENTS.keys())
+    c.execute(f'SELECT {cols} FROM users WHERE user_id=%s', (user_id,))
+    row = c.fetchone()
+
+    # Получаем все выполненные уровни
+    c.execute('SELECT stat_key, level FROM user_achievements WHERE user_id=%s', (user_id,))
+    ach_levels = {r[0]: r[1] for r in c.fetchall()}
+    conn.close()
+
+    stat_values = {key: (row[i] or 0) for i, key in enumerate(ACHIEVEMENTS.keys())}
+
+    sep = "— – - 🏅 ДОСТИЖЕНИЯ 🏅 - – —"
+    end = "— — – - - - - - - - - - - - – — —"
+    text = sep + "\n\n"
+
+    for stat_key, ach in ACHIEVEMENTS.items():
+        current_val = stat_values[stat_key]
+        current_level = ach_levels.get(stat_key, -1)
+        next_level_idx = current_level + 1
+        levels = ach['levels']
+
+        text += f"– – {ach['title']} – –\n"
+
+        if next_level_idx >= len(levels):
+            text += "✅ Все достижения выполнены!\n\n"
+        else:
+            threshold, name, _ = levels[next_level_idx]
+            text += f"🎯 «{name}»\n"
+            text += f"Прогресс: {current_val} / {threshold}\n\n"
+
+    text += end
+    bot.send_message(message.chat.id, text)
 
 # ===== ЗАПУСК =====
 init_db()
