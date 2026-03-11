@@ -1346,7 +1346,10 @@ def callback_harvest(call):
         c2.execute('UPDATE users SET vegs_harvested=vegs_harvested+1 WHERE user_id=%s', (user_id,))
         conn2.commit()
         conn2.close()
-        check_and_give_achievements(user_id, call.message.chat.id)
+        try:
+            check_and_give_achievements(user_id, call.message.chat.id)
+        except Exception as e:
+            print(f"ERROR achievements harvest: {e}")
 
         bonus_worm = ""
         if random.randint(1, 10) == 1:
@@ -2570,43 +2573,81 @@ def cmd_achievements(message):
     username = message.from_user.username or message.from_user.first_name
     register_user(user_id, username)
 
-    conn = get_conn()
-    c = conn.cursor()
+    try:
+        conn = get_conn()
+        c = conn.cursor()
 
-    # Получаем все счётчики за раз
-    cols = ', '.join(ACHIEVEMENTS.keys())
-    c.execute(f'SELECT {cols} FROM users WHERE user_id=%s', (user_id,))
-    row = c.fetchone()
+        cols = ', '.join(ACHIEVEMENTS.keys())
+        c.execute(f'SELECT {cols} FROM users WHERE user_id=%s', (user_id,))
+        row = c.fetchone()
 
-    # Получаем все выполненные уровни
-    c.execute('SELECT stat_key, level FROM user_achievements WHERE user_id=%s', (user_id,))
-    ach_levels = {r[0]: r[1] for r in c.fetchall()}
-    conn.close()
+        c.execute('SELECT stat_key, level FROM user_achievements WHERE user_id=%s', (user_id,))
+        ach_levels = {r[0]: r[1] for r in c.fetchall()}
+        conn.close()
 
-    stat_values = {key: (row[i] or 0) for i, key in enumerate(ACHIEVEMENTS.keys())}
+        if not row:
+            bot.send_message(message.chat.id, "❌ Ошибка: данные не найдены!")
+            return
 
-    sep = "— – - 🏅 ДОСТИЖЕНИЯ 🏅 - – —"
-    end = "— — – - - - - - - - - - - - – — —"
-    text = sep + "\n\n"
+        stat_values = {key: (row[i] or 0) for i, key in enumerate(ACHIEVEMENTS.keys())}
 
-    for stat_key, ach in ACHIEVEMENTS.items():
-        current_val = stat_values[stat_key]
-        current_level = ach_levels.get(stat_key, -1)
-        next_level_idx = current_level + 1
-        levels = ach['levels']
+        sep = "— – - 🏅 ДОСТИЖЕНИЯ 🏅 - – —"
+        end = "— — – - - - - - - - - - - - – — —"
+        text = sep + "\n\n"
 
-        text += f"– – {ach['title']} – –\n"
+        for stat_key, ach in ACHIEVEMENTS.items():
+            current_val = stat_values[stat_key]
+            current_level = ach_levels.get(stat_key, -1)
+            next_level_idx = current_level + 1
+            levels = ach['levels']
 
-        if next_level_idx >= len(levels):
-            text += "✅ Все достижения выполнены!\n\n"
-        else:
-            threshold, name, _ = levels[next_level_idx]
-            text += f"🎯 «{name}»\n"
-            text += f"Прогресс: {current_val} / {threshold}\n\n"
+            text += f"– – {ach['title']} – –\n"
 
-    text += end
-    bot.send_message(message.chat.id, text)
+            if next_level_idx >= len(levels):
+                text += "✅ Все достижения выполнены!\n\n"
+            else:
+                threshold, name, _ = levels[next_level_idx]
+                text += f"🎯 «{name}»\n"
+                text += f"Прогресс: {current_val} / {threshold}\n\n"
 
+        text += end
+        bot.send_message(message.chat.id, text)
+
+    except Exception as e:
+        print(f"ERROR cmd_achievements: {e}")
+        bot.send_message(message.chat.id, "❌ Ошибка загрузки достижений. Попробуй позже.")
+
+@bot.message_handler(commands=['initdb'])
+def cmd_initdb(message):
+    if message.from_user.username != ADMIN_USERNAME:
+        return
+    try:
+        conn = get_conn()
+        c = conn.cursor()
+        sqls = [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS vegs_harvested INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS seeds_planted   INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS fish_caught     INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS fishing_count   INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS casino_games    INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS casino_winnings INTEGER DEFAULT 0",
+        ]
+        for sql in sqls:
+            c.execute(sql)
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS user_achievements (
+                user_id  BIGINT,
+                stat_key TEXT,
+                level    INTEGER,
+                PRIMARY KEY (user_id, stat_key)
+            )
+        ''')
+        conn.commit()
+        conn.close()
+        bot.send_message(message.chat.id, "✅ База данных обновлена!")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка: {e}")
+        
 # ===== ЗАПУСК =====
 init_db()
 init_battle_tables()
