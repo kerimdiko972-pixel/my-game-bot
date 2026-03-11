@@ -1501,6 +1501,17 @@ def callback_slot_close(call):
     except: pass
     bot.answer_callback_query(call.id)
 
+@bot.message_handler(commands=['droptower'])
+def drop_tower(message):
+    if message.from_user.id == ТВОЙ_TELEGRAM_ID:  # вставь свой id
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+        c = conn.cursor()
+        c.execute("DROP TABLE IF EXISTS tower_chars")
+        c.execute("DROP TABLE IF EXISTS tower_battles")
+        conn.commit()
+        conn.close()
+        bot.send_message(message.chat.id, "✅ Таблицы удалены")
+
 # --- Кубик-Бомба ---
 @bot.callback_query_handler(func=lambda call: call.data == 'casino_dice')
 def callback_casino_dice(call):
