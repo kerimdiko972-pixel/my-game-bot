@@ -13,6 +13,7 @@ from tower import register_tower, init_tower_tables
 from tower_battle import register_tower_battle, init_battle_table
 from tower_events import register_tower_events
 from tower_treasury import register_tower_treasury
+from tower_skills import register_tower_skills
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, use_class_middlewares=True)
 app = Flask(__name__)
@@ -2401,4 +2402,5 @@ register_tower(bot)
 register_tower_battle(bot)
 register_tower_events(bot)
 register_tower_treasury(bot)
+register_tower_skills(bot)
 run_flask()
