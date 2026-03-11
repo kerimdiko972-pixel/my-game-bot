@@ -398,6 +398,7 @@ def victory_keyboard(floor):
         InlineKeyboardButton("⬆️ Следующий этаж", callback_data="tb_next_floor"),
         InlineKeyboardButton("🚪 Покинуть башню",  callback_data="tb_exit"),
     )
+    markup.add(InlineKeyboardButton("🏯 Меню башни", callback_data="tb_to_menu"))
     return markup
 
 def reward_items(floor):
