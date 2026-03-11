@@ -352,6 +352,7 @@ def init_db():
         "ALTER TABLE users ADD COLUMN fishing_count   INTEGER DEFAULT 0",
         "ALTER TABLE users ADD COLUMN casino_games    INTEGER DEFAULT 0",
         "ALTER TABLE users ADD COLUMN casino_winnings INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS luck INTEGER DEFAULT 0",
     ]
     for sql in new_columns:
         try:
@@ -1117,6 +1118,7 @@ def cmd_set(message):
         "tomato":   "tomato",
         "eggplant": "eggplant",
         "pumpkin":  "pumpkin",
+        "luck": "luck",
     }
 
     if field not in allowed_fields:
@@ -1578,7 +1580,8 @@ def callback_slot_spin(call):
     bot.answer_callback_query(call.id)
 
     # Генерируем сетку
-    grid = sm_spin()
+    luck = user[23] if user and len(user) > 23 else 0  # колонка luck
+    grid = sm_spin(luck=luck)
 
     # Показываем пустую сетку
     try:
