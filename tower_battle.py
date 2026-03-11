@@ -1092,9 +1092,6 @@ def register_tower_battle(bot):
                     msg_id_to_delete=state.get('last_msg_id'))
 
     # ── НАВЫК (заглушка) ──────────────────────────────────────
-    @bot.callback_query_handler(func=lambda call: call.data == 'tb_skill')
-    def cb_tb_skill(call):
-        bot.answer_callback_query(call.id, "📜 Система навыков будет добавлена скоро!", show_alert=True)
 
     # ── НАЗАД К БИТВЕ ─────────────────────────────────────────
     @bot.callback_query_handler(func=lambda call: call.data == 'tb_back_to_battle')
