@@ -1503,7 +1503,7 @@ def callback_slot_close(call):
 
 @bot.message_handler(commands=['droptower'])
 def drop_tower(message):
-    if message.from_user.id == ТВОЙ_TELEGRAM_ID:  # вставь свой id
+    if message.from_user.id == 5713291180:  # вставь свой id
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
         c = conn.cursor()
         c.execute("DROP TABLE IF EXISTS tower_chars")
