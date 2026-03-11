@@ -1316,6 +1316,9 @@ def register_tower_events(bot):
                 InlineKeyboardButton("⬆️ Следующий этаж", callback_data="tb_next_floor"),
                 InlineKeyboardButton("🚪 Покинуть башню",  callback_data="tb_exit"),
             )
+            markup.add(InlineKeyboardButton("🏯 Меню башни", callback_data="tb_to_menu"))
+            floor = state.get('floor', 1)
+            char = get_tower_char(user_id)
             bot.send_message(call.message.chat.id,
                 f"🏯 Этаж *{floor}* пройден. Что дальше?",
                 reply_markup=markup, parse_mode='Markdown')
