@@ -1762,7 +1762,7 @@ def callback_slot_restart(call):
 def callback_casino_dice(call):
     user_id = call.from_user.id
     sep = "- - - - - - - - - - - - - - - - - - -"
-    pending_bets.pop(user_id, None)
+    pending_slots.pop(user_id, None)
     pending_dice[user_id] = {'status': 'waiting'}
     bot.send_message(
         call.message.chat.id,
