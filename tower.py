@@ -1158,15 +1158,6 @@ def register_tower(bot):
     def cb_delete_cancel(call):
         bot.answer_callback_query(call.id, "Отменено")
 
-    # ── Заглушки ──────────────────────────────────────────────
-
-    @bot.callback_query_handler(func=lambda call: call.data in ['tower_skills'])
-    def cb_stub(call):
-        labels = {
-            'tower_skills':  '📜 Система навыков будет добавлена скоро!'
-        }
-        bot.answer_callback_query(call.id, labels.get(call.data, '🔧 В разработке'), show_alert=True)
-
     # ── Рекорды ───────────────────────────────────────────────
 
     @bot.callback_query_handler(func=lambda call: call.data == 'tower_records')
