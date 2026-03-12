@@ -2577,7 +2577,7 @@ def cmd_checkdb(message):
 def cmd_myluck(message):
     user_id = message.from_user.id
     user = get_user(user_id)
-    luck = user[23] if user and len(user) > 23 else 0
+    luck = user[29] if user and len(user) > 29 else 0
     bot.send_message(message.chat.id, f"🍀 Твоя удача: {luck}")
     
 # ===== РЫБАЛКА (новая) =====
