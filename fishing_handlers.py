@@ -548,9 +548,11 @@ def register_fishing_handlers(bot, get_conn, get_user, add_exp, add_money,
             else:
                 name   = fish[2]
                 emoji  = fish[1]
+                price  = fish[4]
                 rname  = F.RARITY_NAMES.get(rarity, '')
-                rewards.append(f"+ {emoji} {name} | {rarity} {rname}")
+                rewards.append(f"+ {emoji} {name} | {rarity} {rname} | +💵{price}")
                 _add_fish_to_catalog(user_id, name)
+                _add_money(user_id, price)
 
         _add_exp(user_id, exp_gain)
         _reset_trap(user_id, slot)
