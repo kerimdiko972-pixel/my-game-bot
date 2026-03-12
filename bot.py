@@ -10,6 +10,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask
 from config import BOT_TOKEN
 from slot_machine import sm_spin, sm_check_wins, sm_render_grid, sm_win_line, sm_total
+from fishing_handlers import register_fishing_handlers, traps_checker_loop
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, use_class_middlewares=True)
 app = Flask(__name__)
@@ -123,43 +124,6 @@ ACHIEVEMENTS = {
         ]
     },
 }
-
-# Рыбалка
-FISH_CATCHES = [
-    ("🐟",  540),
-    ("🐠",  200),
-    ("🦀",  80),
-    ("🦞",  70),
-    ("🦑",  60),
-    ("🦈",  30),
-    ("🐉",  17),
-    ("🧳",  3),
-]
-FISH_NAMES = {
-    "🐟": "Рыба",
-    "🐠": "Тропическая рыба",
-    "🦀": "Краб",
-    "🦞": "Лобстер",
-    "🦑": "Кальмар",
-    "🦈": "Акула",
-    "🐉": "Драгон-Фиш",
-    "🧳": "Сокровище",
-}
-FISH_COLUMNS = {
-    "🐟": "fish",
-    "🐠": "tropical_fish",
-    "🦀": "crab",
-    "🦞": "lobster",
-    "🦑": "squid",
-    "🦈": "shark",
-    "🐉": "dragonfish",
-    "🧳": "treasure",
-}
-
-def random_fish():
-    items = [f for f, _ in FISH_CATCHES]
-    weights = [w for _, w in FISH_CATCHES]
-    return random.choices(items, weights=weights, k=1)[0]
 
 # ===== ОВОЩИ =====
 VEGETABLES = [
@@ -331,6 +295,40 @@ def init_db():
         )
     ''')
 
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS traps (
+            user_id    BIGINT,
+            slot       INTEGER,
+            status     TEXT DEFAULT 'empty',
+            started_at TEXT DEFAULT NULL,
+            chat_id    BIGINT DEFAULT NULL,
+            message_id BIGINT DEFAULT NULL,
+            PRIMARY KEY (user_id, slot)
+        )
+    ''')
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS fish_catalog (
+            user_id   BIGINT,
+            fish_name TEXT,
+            count     INTEGER DEFAULT 0,
+            PRIMARY KEY (user_id, fish_name)
+        )
+    ''')
+
+    # Новые колонки снаряжения
+    for col_sql in [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS rod_level  INTEGER DEFAULT 1",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS line_level INTEGER DEFAULT 1",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS hook_level INTEGER DEFAULT 1",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS reel_level INTEGER DEFAULT 1",
+    ]:
+        try:
+            c.execute(col_sql)
+            conn.commit()
+        except:
+            conn.rollback()
+
     # Добавляем новые слоты грядок если их меньше 10
     try:
         c.execute("ALTER TABLE users ADD COLUMN private_chat_id BIGINT DEFAULT NULL")
@@ -398,6 +396,7 @@ def register_user(user_id, username):
         c.execute('INSERT INTO garden (user_id, slot) VALUES (%s, %s) ON CONFLICT DO NOTHING', (user_id, slot))
     for slot in range(1, 5):
         c.execute('INSERT INTO fishing (user_id, slot) VALUES (%s, %s) ON CONFLICT DO NOTHING', (user_id, slot))
+        c.execute('INSERT INTO traps (user_id, slot) VALUES (%s, %s) ON CONFLICT DO NOTHING', (user_id, slot))
     conn.commit()
     conn.close()
 
@@ -455,15 +454,6 @@ def add_eggs(user_id, amount):
     conn.commit()
     conn.close()
 
-def add_fish_item(user_id, fish_emoji):
-    col = FISH_COLUMNS.get(fish_emoji)
-    if not col: return
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(f'UPDATE users SET {col}={col}+1 WHERE user_id=%s', (user_id,))
-    conn.commit()
-    conn.close()
-
 def check_rank_up(user_id, chat_id):
     user = get_user(user_id)
     if not user: return
@@ -501,74 +491,6 @@ def check_rank_up(user_id, chat_id):
             )
             stored_index = i
 
-# Рыбалка - вспомогательные функции
-def get_fishing(user_id):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute('SELECT slot, status, started_at FROM fishing WHERE user_id=%s ORDER BY slot', (user_id,))
-    slots = c.fetchall()
-    conn.close()
-    return slots
-
-def start_fishing(user_id, slot, chat_id, message_id):
-    conn = get_conn()
-    c = conn.cursor()
-    now = datetime.now().isoformat()
-    c.execute('''UPDATE fishing SET status='fishing', started_at=%s, chat_id=%s, message_id=%s
-                 WHERE user_id=%s AND slot=%s''', (now, chat_id, message_id, user_id, slot))
-    c.execute('UPDATE users SET bait=bait-3 WHERE user_id=%s', (user_id,))
-    conn.commit()
-    conn.close()
-
-def reset_fishing_slot(user_id, slot):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute('''UPDATE fishing SET status='empty', started_at=NULL, chat_id=NULL, message_id=NULL
-                 WHERE user_id=%s AND slot=%s''', (user_id, slot))
-    conn.commit()
-    conn.close()
-
-def get_ready_fishing():
-    conn = get_conn()
-    c = conn.cursor()
-    threshold = (datetime.now() - timedelta(hours=1)).isoformat()
-    c.execute('''SELECT user_id, slot, chat_id, message_id FROM fishing
-                 WHERE status='fishing' AND started_at <= %s''', (threshold,))
-    rows = c.fetchall()
-    conn.close()
-    return rows
-
-def fishing_text(user_id):
-    user = get_user(user_id)
-    money = user[2] if user else 0
-    bait  = user[5] if user else 0
-    return (f"🌊 РЫБАЛКА 🎣\n"
-            f"💵 Денег: {money}\n"
-            f"🪱 Наживок: {bait}\n"
-            f"- - - - - - - - - - - -")
-
-def fishing_keyboard(user_id):
-    slots = get_fishing(user_id)
-    markup = InlineKeyboardMarkup(row_width=2)
-    buttons = []
-    for slot, status, started_at in slots:
-        if status == 'empty':
-            btn = InlineKeyboardButton("Установить 🪱×3", callback_data=f"fish_start_{slot}")
-        elif status == 'fishing':
-            started = datetime.fromisoformat(started_at)
-            remaining = (started + timedelta(hours=1)) - datetime.now()
-            if remaining.total_seconds() <= 0:
-                btn = InlineKeyboardButton("✅ Забрать улов", callback_data=f"fish_collect_{slot}")
-            else:
-                mins = int(remaining.total_seconds() // 60)
-                btn = InlineKeyboardButton(f"⏳ {mins} мин.", callback_data=f"fish_wait_{slot}")
-        elif status == 'ready':
-            btn = InlineKeyboardButton("✅ Забрать улов", callback_data=f"fish_collect_{slot}")
-        else:
-            btn = InlineKeyboardButton("Установить 🪱×3", callback_data=f"fish_start_{slot}")
-        buttons.append(btn)
-    markup.add(*buttons)
-    return markup
 
 def add_pet(user_id, pet, rarity):
     conn = get_conn()
@@ -759,19 +681,6 @@ def garden_checker():
                     try:
                         bot.edit_message_text(garden_text(user_id), chat_id=chat_id,
                             message_id=message_id, reply_markup=garden_keyboard(user_id))
-                    except: pass
-            # Рыбалка
-            ready_fish = get_ready_fishing()
-            for user_id, slot, chat_id, message_id in ready_fish:
-                conn = get_conn()
-                c = conn.cursor()
-                c.execute("UPDATE fishing SET status='ready' WHERE user_id=%s AND slot=%s", (user_id, slot))
-                conn.commit()
-                conn.close()
-                if chat_id and message_id:
-                    try:
-                        bot.edit_message_text(fishing_text(user_id), chat_id=chat_id,
-                            message_id=message_id, reply_markup=fishing_keyboard(user_id))
                     except: pass
         except Exception as e:
             print(f"Checker error: {e}")
@@ -999,20 +908,6 @@ def cmd_bag(message):
         markup.add(*buttons)
 
     bot.send_message(message.chat.id, text, parse_mode='Markdown', reply_markup=markup)
-
-@bot.message_handler(commands=['fishing'])
-def cmd_fishing(message):
-    user_id = message.from_user.id
-    username = message.from_user.username or message.from_user.first_name
-    register_user(user_id, username)
-    msg = bot.send_message(message.chat.id, fishing_text(user_id), reply_markup=fishing_keyboard(user_id))
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute('''UPDATE fishing SET chat_id=%s, message_id=%s
-                 WHERE user_id=%s AND status IN ('fishing','ready')''',
-              (message.chat.id, msg.message_id, user_id))
-    conn.commit()
-    conn.close()
 
 @bot.message_handler(commands=['shop'])
 def cmd_shop(message):
@@ -1381,70 +1276,6 @@ def callback_buy_egg(call):
     bot.send_message(call.message.chat.id,
         "✅ Куплено *🥚 Загадочное яйцо*!\nОткрой его через */bag*", parse_mode='Markdown')
 
-# --- Рыбалка ---
-@bot.callback_query_handler(func=lambda call: call.data.startswith('fish_start_'))
-def callback_fish_start(call):
-    user_id = call.from_user.id
-    slot = int(call.data.split('_')[2])
-    user = get_user(user_id)
-    if not user or user[5] < 3:
-        bot.answer_callback_query(call.id, "❌ Нужно минимум 3 🪱 наживки!")
-        return
-    start_fishing(user_id, slot, call.message.chat.id, call.message.message_id)
-    bot.edit_message_text(fishing_text(user_id), chat_id=call.message.chat.id,
-                          message_id=call.message.message_id, reply_markup=fishing_keyboard(user_id))
-    bot.answer_callback_query(call.id, "🎣 Удочка заброшена!")
-    conn2 = get_conn()
-    c2 = conn2.cursor()
-    c2.execute('UPDATE users SET fishing_count=fishing_count+1 WHERE user_id=%s', (user_id,))
-    conn2.commit()
-    conn2.close()
-    check_and_give_achievements(user_id, call.message.chat.id)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('fish_wait_'))
-def callback_fish_wait(call):
-    bot.answer_callback_query(call.id, "⏳ Ещё не время! Подожди.")
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('fish_collect_'))
-def callback_fish_collect(call):
-    user_id = call.from_user.id
-    slot = int(call.data.split('_')[2])
-
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute('SELECT status, started_at FROM fishing WHERE user_id=%s AND slot=%s', (user_id, slot))
-    row = c.fetchone()
-    conn.close()
-
-    if row and row[0] == 'fishing':
-        started = datetime.fromisoformat(row[1])
-        if datetime.now() - started < timedelta(hours=1):
-            bot.answer_callback_query(call.id, "⏳ Ещё не готово!")
-            return
-
-    catch = [random_fish() for _ in range(3)]
-    exp_gain = random.randint(50, 100)
-
-    for fish_item in catch:
-        add_fish_item(user_id, fish_item)
-    add_exp(user_id, exp_gain, call.message.chat.id)
-    reset_fishing_slot(user_id, slot)
-
-    lines = "\n".join([f"+ {f} {FISH_NAMES[f]}" for f in catch])
-    bot.answer_callback_query(call.id, "🎣 Улов собран!")
-    bot.send_message(
-        call.message.chat.id,
-        f"🎣 *Выловлено:*\n{lines}\n+ {exp_gain} 🌟 Опыта",
-        parse_mode='Markdown'
-    )
-    bot.edit_message_text(fishing_text(user_id), chat_id=call.message.chat.id,
-                          message_id=call.message.message_id, reply_markup=fishing_keyboard(user_id))
-    conn2 = get_conn()
-    c2 = conn2.cursor()
-    c2.execute('UPDATE users SET fish_caught=fish_caught+3 WHERE user_id=%s', (user_id,))
-    conn2.commit()
-    conn2.close()
-    check_and_give_achievements(user_id, call.message.chat.id)
 
 # --- Открытие яйца из мешка ---
 @bot.callback_query_handler(func=lambda call: call.data == 'open_egg_bag')
@@ -2728,7 +2559,13 @@ def cmd_initdb(message):
         bot.send_message(message.chat.id, "✅ База данных обновлена!")
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ Ошибка: {e}")
-        
+
+# ===== РЫБАЛКА (новая) =====
+register_fishing_handlers(
+    bot, get_conn, get_user, add_exp, add_money,
+    add_bait, spend_money, check_and_give_achievements
+)
+
 # ===== ЗАПУСК =====
 init_db()
 init_battle_tables()
@@ -2738,6 +2575,11 @@ time.sleep(15)
 print("Бот запущен!")
 
 threading.Thread(target=garden_checker, daemon=True).start()
+threading.Thread(
+    target=traps_checker_loop,
+    args=(bot, get_conn),
+    daemon=True
+).start()
 threading.Thread(target=battle_checker, daemon=True).start()
 bot_thread = threading.Thread(target=run_bot, daemon=True)
 bot_thread.start()
