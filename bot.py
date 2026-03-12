@@ -968,7 +968,7 @@ def cmd_sell(message):
 
     if total == 0:
         conn.close()
-        bot.send_message(message.chat.id, "❌ Нечего продавать!\nСобери урожай /garden или улов /fishing")
+        bot.send_message(message.chat.id, "❌ Нечего продавать!\nСобери урожай /garden")
         return
 
     c.execute('UPDATE users SET money=money+%s WHERE user_id=%s', (total, user_id))
@@ -1411,7 +1411,7 @@ def callback_slot_spin(call):
     bot.answer_callback_query(call.id)
 
     # Генерируем сетку
-    luck = user[23] if user and len(user) > 23 else 0  # колонка luck
+    luck = user[29] if user and len(user) > 29 else 0  # колонка luck
     grid = sm_spin(luck=luck)
 
     # Показываем пустую сетку
@@ -2538,6 +2538,7 @@ def cmd_initdb(message):
         c = conn.cursor()
         sqls = [
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS vegs_harvested INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS luck INTEGER DEFAULT 0",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS seeds_planted   INTEGER DEFAULT 0",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS fish_caught     INTEGER DEFAULT 0",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS fishing_count   INTEGER DEFAULT 0",
