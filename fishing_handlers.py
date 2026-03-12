@@ -789,7 +789,7 @@ def register_fishing_handlers(bot, get_conn, get_user, add_exp, add_money,
         # Случайное действие рыбы
         fish_text, ten_delta, str_delta = F.fish_action(is_legendary=is_leg)
         cur_ten = min(max_ten, cur_ten + ten_delta)
-        cur_str = min(max_str, cur_str + str_delta))
+        cur_str = min(max_str, cur_str + str_delta)
 
         # Отправляем действие рыбы новым сообщением
         fish_msg = bot.send_message(chat_id, fish_text)
