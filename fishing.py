@@ -87,10 +87,10 @@ ROD_LEVELS = {
 }
 LINE_LEVELS = {
     1: {'max_tension': 10, 'start_tension': 4, 'price': 0},
-    2: {'max_tension': 14, 'start_tension': 5, 'price': 4000},
-    3: {'max_tension': 18, 'start_tension': 6, 'price': 20000},
-    4: {'max_tension': 24, 'start_tension': 7, 'price': 100000},
-    5: {'max_tension': 32, 'start_tension': 8, 'price': 400000},
+    2: {'max_tension': 13, 'start_tension': 5, 'price': 4000},
+    3: {'max_tension': 17, 'start_tension': 6, 'price': 20000},
+    4: {'max_tension': 20, 'start_tension': 7, 'price': 100000},
+    5: {'max_tension': 25, 'start_tension': 8, 'price': 600000},
 }
 HOOK_LEVELS = {
     1: {'hook_chance': 0,  'rare_bonus': 0, 'price': 0},
