@@ -182,17 +182,26 @@ def random_trap_reward():
         return 'treasure', None
     return chosen, random.choice(FISH_BY_RARITY[chosen])
 
-def fish_action(is_legendary=False):
+def fish_action(is_epic_or_legendary=False):
     """Случайное действие рыбы. → (text, tension_delta, strength_delta)"""
     roll = random.random()
-    if roll < 0.50:
-        return "🐟 Рыба дёрнулась!\n+2 к натяжению лески и +2 к силе рыбы", 2, 2
-    elif roll < 0.70:
-        return "🐟 Рыба ёрзает!\n+1 к натяжению лески и +1 к силе рыбы", 1, 1
-    elif roll < 0.85:
-        return "🐟 Рыба резко рванула!\n+4 к натяжению лески и +4 к силе рыбы", 4, 4
+    if is_epic_or_legendary:
+        if roll < 0.50:
+            return "🐟 Рыба дёрнулась!\n+2 к натяжению лески и +2 к силе рыбы", 2, 2
+        elif roll < 0.70:
+            return "🐟 Рыба спокойна... —\n-1 к силе", 0, -1
+        elif roll < 0.85:
+            return "🐟 Рыба резко рванула!\n+4 к натяжению лески и +4 к силе рыбы", 4, 4
+        else:
+            return "🐟 Рыба восстанавливается...\n+3 Силы рыбы", 0, 3
     else:
-        return "🐟 Рыба восстанавливается...\n+3 Силы рыбы", 0, 3
+        # Без "резко рванула" — 15% перераспределяются: 57.5% дёргается, 27.5% спокойна
+        if roll < 0.575:
+            return "🐟 Рыба дёрнулась!\n+2 к натяжению лески и +2 к силе рыбы", 2, 2
+        elif roll < 0.85:
+            return "🐟 Рыба спокойна... —\n-1 к силе", 0, -1
+        else:
+            return "🐟 Рыба восстанавливается...\n+3 Силы рыбы", 0, 3
         
 def make_bar(current, max_val, width=10):
     current = max(0, current)
