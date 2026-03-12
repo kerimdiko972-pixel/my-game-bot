@@ -773,8 +773,8 @@ def register_fishing_handlers(bot, get_conn, get_user, add_exp, add_money,
         if action == 'pull':
             dmg     = 1 + rod_dmg
             cur_str = max(0, cur_str - dmg)
-            cur_ten = cur_ten + 3
-            note    = f"🎣 Ты решаешь тянуть!\nУрон: -{dmg} силы рыбы, +3 натяжение"
+            cur_ten = cur_ten + 2
+            note    = f"🎣 Ты решаешь тянуть!\nУрон: -{dmg} силы рыбы, +2 натяжение"
         elif action == 'loosen':
             cur_str = cur_str + (2 if is_leg else 1)
             cur_ten = max(0, cur_ten - reel_loosen)
