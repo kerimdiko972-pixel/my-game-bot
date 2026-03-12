@@ -2560,6 +2560,25 @@ def cmd_initdb(message):
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ Ошибка: {e}")
 
+@bot.message_handler(commands=['checkdb'])
+def cmd_checkdb(message):
+    if message.from_user.username != 'Sid_17jj':
+        return
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT column_name, ordinal_position FROM information_schema.columns WHERE table_name='users' ORDER BY ordinal_position")
+    rows = c.fetchall()
+    conn.close()
+    text = "\n".join([f"{pos}: {name}" for name, pos in rows])
+    bot.send_message(message.chat.id, f"Колонки users:\n{text}")
+
+@bot.message_handler(commands=['myluck'])
+def cmd_myluck(message):
+    user_id = message.from_user.id
+    user = get_user(user_id)
+    luck = user[23] if user and len(user) > 23 else 0
+    bot.send_message(message.chat.id, f"🍀 Твоя удача: {luck}")
+    
 # ===== РЫБАЛКА (новая) =====
 register_fishing_handlers(
     bot, get_conn, get_user, add_exp, add_money,
