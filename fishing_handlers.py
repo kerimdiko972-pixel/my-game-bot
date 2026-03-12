@@ -630,11 +630,12 @@ def register_fishing_handlers(bot, get_conn, get_user, add_exp, add_money,
         line_stats = F.LINE_LEVELS[eq['line']]
         hook_stats = F.HOOK_LEVELS[eq['hook']]
 
-        fish         = F.random_fish(rare_bonus=hook_stats['rare_bonus'])
-        react_time   = fish[7] + rod_stats['time_bonus']
-        wait_time    = random.uniform(2, 17)
-        max_tension  = line_stats['max_tension']
-        hook_chance  = hook_stats['hook_chance']
+        fish          = F.random_fish(rare_bonus=hook_stats['rare_bonus'])
+        react_time    = fish[7] + rod_stats['time_bonus']
+        wait_time     = random.uniform(2, 17)
+        max_tension   = line_stats['max_tension']
+        start_tension = line_stats['start_tension']
+        hook_chance   = hook_stats['hook_chance']
 
         # Отправляем сообщение ожидания
         msg = bot.send_message(
@@ -658,7 +659,7 @@ def register_fishing_handlers(bot, get_conn, get_user, add_exp, add_money,
                 'chat_id':         call.message.chat.id,
                 'wait_msg_id':     msg.message_id,
                 'current_strength': fish[3],
-                'current_tension':  2,
+                'current_tension':  start_tension,
                 'fight_msg_id':    None,
             }
 
