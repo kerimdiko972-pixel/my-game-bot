@@ -193,14 +193,14 @@ def fish_action(is_epic_or_legendary=False):
         elif roll < 0.85:
             return "🐟 Рыба резко рванула!\n+4 к натяжению лески и +1 к силе рыбы.", 4, 1
         else:
-            return "🐟 Рыба восстанавливается...\n+3 Силы рыбы", 0, 3
+            return "🐟 Рыба восстанавливается...\n+1 Силы рыбы", 0, 1
     else:
         if roll < 0.575:
             return "🐟 Рыба дёрнулась!\n+2 к натяжению лески.", 2, 0
         elif roll < 0.85:
             return "🐟 Рыба спокойна... —\nНичего не происходит.", 0, 0
         else:
-            return "🐟 Рыба восстанавливается...\n+3 Силы рыбы", 0, 3
+            return "🐟 Рыба восстанавливается...\n+1 Силы рыбы", 0, 1
         
 def make_bar(current, max_val, width=10):
     current = max(0, current)
