@@ -124,6 +124,7 @@ def _equip_menu_markup():
         InlineKeyboardButton("⏫ Улуч. крючок 🪝",  callback_data="fish_upgrade_hook"),
         InlineKeyboardButton("⏫ Улуч. катушку ⚙️", callback_data="fish_upgrade_reel"),
         InlineKeyboardButton("🔙 Назад",            callback_data="fish_main"),
+        InlineKeyboardButton("🗑️ Удалить удочку",   callback_data="fish_reset_equip"),
     )
     return m
 
@@ -375,6 +376,50 @@ def register_fishing_handlers(bot, get_conn, get_user, add_exp, add_money,
             )
         except: pass
         bot.answer_callback_query(call.id)
+
+    # ——— Удаление удочки ———
+    @bot.callback_query_handler(func=lambda c: c.data == 'fish_reset_equip')
+    def cb_reset_equip(call):
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            InlineKeyboardButton("✖️ Отмена",   callback_data="fish_equip"),
+            InlineKeyboardButton("🗑️ Удалить",  callback_data="fish_reset_confirm"),
+        )
+        try:
+            bot.edit_message_text(
+                "❗Ты собираешься удалить свою текущую удочку и все уровни прокачки всего снаряжения❗\n\nПродолжить?",
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                reply_markup=markup
+            )
+        except: pass
+        bot.answer_callback_query(call.id)
+
+    @bot.callback_query_handler(func=lambda c: c.data == 'fish_reset_confirm')
+    def cb_reset_confirm(call):
+        user_id = call.from_user.id
+        conn = _get_conn()
+        c    = conn.cursor()
+        c.execute('''UPDATE users SET rod_level=1, line_level=1,
+                     hook_level=1, reel_level=1 WHERE user_id=%s''', (user_id,))
+        conn.commit()
+        conn.close()
+        bot.answer_callback_query(call.id, "🗑️ Снаряжение сброшено до Ур. 1")
+        user2  = _get_user(user_id)
+        money2 = user2[2] if user2 else 0
+        bait2  = user2[5] if user2 else 0
+        conn2  = _get_conn()
+        eq2    = F.get_equipment(conn2, user_id)
+        conn2.close()
+        try:
+            bot.edit_message_text(
+                F.equipment_menu_text(money2, bait2, eq2),
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                reply_markup=_equip_menu_markup(),
+                parse_mode='Markdown'
+            )
+        except: pass
 
     # ── Предпросмотр улучшения ──────────────────────────────
     def _show_upgrade(call, item_key):
