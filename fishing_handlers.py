@@ -583,6 +583,22 @@ def register_fishing_handlers(bot, get_conn, get_user, add_exp, add_money,
     def cb_trap_collect(call):
         user_id = call.from_user.id
         slot    = int(call.data.split('_')[2])
+
+        # Атомарно проверяем и сбрасываем статус — защита от дюпа
+        conn_check = _get_conn()
+        c_check    = conn_check.cursor()
+        c_check.execute(
+            "UPDATE traps SET status='empty', started_at=NULL WHERE user_id=%s AND slot=%s AND status='ready'",
+            (user_id, slot)
+        )
+        updated = c_check.rowcount
+        conn_check.commit()
+        conn_check.close()
+
+        if updated == 0:
+            bot.answer_callback_query(call.id, "❌ Уже собрано!")
+            return
+
         rewards = []
         exp_gain = random.randint(10, 100)
 
