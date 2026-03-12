@@ -788,7 +788,8 @@ def register_fishing_handlers(bot, get_conn, get_user, add_exp, add_money,
         time.sleep(0.5)
 
         # Случайное действие рыбы
-        fish_text, ten_delta, str_delta = F.fish_action(is_legendary=is_leg)
+        is_epic_or_leg = fish[0] in (F.RARITY_EPIC, F.RARITY_LEGENDARY)
+        fish_text, ten_delta, str_delta = F.fish_action(is_epic_or_legendary=is_epic_or_leg)
         cur_ten = min(max_ten, cur_ten + ten_delta)
         cur_str = min(max_str, cur_str + str_delta)
 
