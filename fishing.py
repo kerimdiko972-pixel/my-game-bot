@@ -119,12 +119,9 @@ EQUIPMENT_ITEMS = {
 # ============================================================
 TRAP_SLOTS = 4
 TRAP_REWARD_TABLE = [
-    (RARITY_COMMON,    50.0),
-    (RARITY_UNCOMMON,  25.0),
-    (RARITY_RARE,      15.0),
-    (RARITY_EPIC,       7.0),
-    (RARITY_LEGENDARY,  2.7),
-    ('treasure',        0.3),
+    (RARITY_COMMON,    75.0),
+    (RARITY_UNCOMMON,  24.8),
+    ('treasure',        0.2),
 ]
 
 # ============================================================
