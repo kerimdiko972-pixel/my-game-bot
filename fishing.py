@@ -186,15 +186,14 @@ def fish_action(is_legendary=False):
     """Случайное действие рыбы. → (text, tension_delta, strength_delta)"""
     roll = random.random()
     if roll < 0.50:
-        return "🐟 Рыба дёрнулась!\n+2 к натяжению лески", 2, 0
+        return "🐟 Рыба дёрнулась!\n+2 к натяжению лески и +2 к силе рыбы", 2, 2
     elif roll < 0.70:
-        return "🐟 Рыба спокойна —", 0, 0
+        return "🐟 Рыба ёрзает!\n+1 к натяжению лески и +1 к силе рыбы", 1, 1
     elif roll < 0.85:
-        return "🐟 Рыба резко рванула!\n+4 к натяжению лески", 4, 0
+        return "🐟 Рыба резко рванула!\n+4 к натяжению лески и +4 к силе рыбы", 4, 4
     else:
-        delta = -2 if is_legendary else -1
-        return f"🐟 Рыба устала...\n{delta} Сила", 0, delta
-
+        return "🐟 Рыба восстанавливается...\n+3 Силы рыбы", 0, 3
+        
 def make_bar(current, max_val, width=10):
     current = max(0, current)
     filled  = round(current / max_val * width) if max_val > 0 else 0
