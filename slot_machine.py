@@ -134,17 +134,17 @@ SM_PATTERNS = _build_patterns()
 
 def sm_spin(luck=0):
     """
-    Генерирует сетку 3×5 с механикой удачи.
-    luck = 0..20, шанс скопировать предыдущий символ.
-    Порядок генерации: по столбцам сверху вниз (совпадает с анимацией).
+    Генерирует случайную сетку 3×5 с механикой удачи.
+    luck = 0..20, шанс скопировать предыдущий символ ВНУТРИ столбца.
+    prev сбрасывается на каждый новый столбец.
     """
     grid = [[None]*5 for _ in range(3)]
-    prev = None
 
     for col in range(5):
+        prev = None  # сбрасываем для каждого столбца
         for row in range(3):
             if prev is not None and luck > 0 and random.random() < luck / 100:
-                sym = prev  # копируем предыдущий символ
+                sym = prev
             else:
                 sym = random.choices(SM_SYMBOLS, weights=SM_WEIGHTS, k=1)[0]
             grid[row][col] = sym
