@@ -382,8 +382,6 @@ def register_fishing_handlers(bot, get_conn, get_user, add_exp, add_money,
         conn    = _get_conn()
         eq      = F.get_equipment(conn, user_id)
         conn.close()
-        cur_lv  = eq[item_key[0:3] if item_key != 'reel' else 'reel']
-        # Исправляем ключ: 'rod','line','hook','reel'
         cur_lv  = eq.get(item_key, 1)
         text, price = F.upgrade_preview_text(item_key, cur_lv)
         if text is None:
