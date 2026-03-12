@@ -163,7 +163,7 @@ def _traps_markup(user_id):
 
 def _catalog_text(user_id):
     catalog = _get_catalog(user_id)
-    total   = sum(catalog.values())
+    total   = sum(1 for v in catalog.values() if v > 0)
     total_count = len(F.FISH_TABLE)
 
     lines = [
