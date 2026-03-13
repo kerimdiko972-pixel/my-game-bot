@@ -183,18 +183,18 @@ def fish_action(is_epic_or_legendary=False):
     """Случайное действие рыбы. → (text, tension_delta, strength_delta)"""
     roll = random.random()
     if is_epic_or_legendary:
-        if roll < 0.50:
+        if roll < 0.20:
             return "🐟 Рыба дёрнулась!\n+1 к натяжению лески.", 1, 0
-        elif roll < 0.70:
+        elif roll < 0.80:
             return "🐟 Рыба спокойна... —\nНичего не происходит.", 0, 0
-        elif roll < 0.85:
-            return "🐟 Рыба резко рванула!\n+2 к натяжению лески и +1 к силе рыбы.", 2, 1
+        elif roll < 0.90:
+            return "🐟 Рыба резко рванула!\n+2 к натяжению лески.", 2, 0
         else:
             return "🐟 Рыба восстанавливается...\n+1 Силы рыбы", 0, 1
     else:
-        if roll < 0.575:
+        if roll < 0.20:
             return "🐟 Рыба дёрнулась!\n+1 к натяжению лески.", 1, 0
-        elif roll < 0.85:
+        elif roll < 0.80:
             return "🐟 Рыба спокойна... —\nНичего не происходит.", 0, 0
         else:
             return "🐟 Рыба восстанавливается...\n+1 Силы рыбы", 0, 1
