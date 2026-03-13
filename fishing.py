@@ -79,18 +79,18 @@ LEVEL_EMOJIS = {1: '⚪', 2: '🟢', 3: '🔵', 4: '🟣', 5: '🟡'}
 MAX_LEVEL = 5
 
 ROD_LEVELS = {
-    1: {'damage': 0, 'time_bonus': 0.0, 'price': 0},
-    2: {'damage': 1, 'time_bonus': 0.2, 'price': 5000},
-    3: {'damage': 2, 'time_bonus': 0.4, 'price': 25000},
-    4: {'damage': 3, 'time_bonus': 0.7, 'price': 120000},
+    1: {'damage': 1, 'time_bonus': 0.0, 'price': 0},
+    2: {'damage': 2, 'time_bonus': 0.2, 'price': 5000},
+    3: {'damage': 3, 'time_bonus': 0.4, 'price': 25000},
+    4: {'damage': 4, 'time_bonus': 0.7, 'price': 120000},
     5: {'damage': 5, 'time_bonus': 1.0, 'price': 500000},
 }
 LINE_LEVELS = {
-    1: {'max_tension': 10, 'start_tension': 4, 'price': 0},
-    2: {'max_tension': 13, 'start_tension': 5, 'price': 4000},
-    3: {'max_tension': 17, 'start_tension': 6, 'price': 20000},
+    1: {'max_tension': 10, 'start_tension': 1, 'price': 0},
+    2: {'max_tension': 13, 'start_tension': 3, 'price': 4000},
+    3: {'max_tension': 17, 'start_tension': 5, 'price': 20000},
     4: {'max_tension': 20, 'start_tension': 7, 'price': 100000},
-    5: {'max_tension': 25, 'start_tension': 8, 'price': 600000},
+    5: {'max_tension': 25, 'start_tension': 9, 'price': 600000},
 }
 HOOK_LEVELS = {
     1: {'hook_chance': 0,  'rare_bonus': 0, 'price': 0},
