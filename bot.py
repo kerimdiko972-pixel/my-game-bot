@@ -11,6 +11,7 @@ from flask import Flask
 from config import BOT_TOKEN
 from slot_machine import sm_spin, sm_check_wins, sm_render_grid, sm_win_line, sm_total
 from fishing_handlers import register_fishing_handlers, traps_checker_loop
+from garden_handlers import register_garden_handlers
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, use_class_middlewares=True)
 app = Flask(__name__)
@@ -124,25 +125,6 @@ ACHIEVEMENTS = {
         ]
     },
 }
-
-# ===== ОВОЩИ =====
-VEGETABLES = [
-    ("🥔", 50), ("🥕", 25), ("🍅", 15), ("🍆", 8), ("🎃", 2),
-]
-VEG_COLUMNS = {
-    "🥔": "potato", "🥕": "carrot",
-    "🍅": "tomato", "🍆": "eggplant", "🎃": "pumpkin"
-}
-
-def random_vegetable():
-    total = sum(w for _, w in VEGETABLES)
-    r = random.randint(1, total)
-    cumulative = 0
-    for veg, weight in VEGETABLES:
-        cumulative += weight
-        if r <= cumulative:
-            return veg
-    return "🥔"
 
 # ===== ПЕТЫ =====
 PETS = {
@@ -392,8 +374,6 @@ def register_user(user_id, username):
     conn = get_conn()
     c = conn.cursor()
     c.execute('INSERT INTO users (user_id, username) VALUES (%s, %s) ON CONFLICT DO NOTHING', (user_id, username))
-    for slot in range(1, 11):
-        c.execute('INSERT INTO garden (user_id, slot) VALUES (%s, %s) ON CONFLICT DO NOTHING', (user_id, slot))
     for slot in range(1, 5):
         c.execute('INSERT INTO fishing (user_id, slot) VALUES (%s, %s) ON CONFLICT DO NOTHING', (user_id, slot))
         c.execute('INSERT INTO traps (user_id, slot) VALUES (%s, %s) ON CONFLICT DO NOTHING', (user_id, slot))
@@ -518,66 +498,6 @@ def get_top_users(limit=15):
     conn.close()
     return top
 
-def get_garden(user_id):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute('SELECT slot, status, planted_at, vegetable FROM garden WHERE user_id=%s ORDER BY slot', (user_id,))
-    slots = c.fetchall()
-    conn.close()
-    return slots
-
-def plant_seed(user_id, slot, chat_id, message_id):
-    conn = get_conn()
-    c = conn.cursor()
-    now = datetime.now().isoformat()
-    c.execute('''
-        UPDATE garden SET status='growing', planted_at=%s, vegetable=NULL, chat_id=%s, message_id=%s
-        WHERE user_id=%s AND slot=%s
-    ''', (now, chat_id, message_id, user_id, slot))
-    c.execute('UPDATE users SET seeds=seeds-1 WHERE user_id=%s', (user_id,))
-    conn.commit()
-    conn.close()
-
-def mark_slot_ready(user_id, slot, vegetable):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("UPDATE garden SET status='ready', vegetable=%s WHERE user_id=%s AND slot=%s",
-              (vegetable, user_id, slot))
-    conn.commit()
-    conn.close()
-
-def harvest_slot(user_id, slot):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute('SELECT vegetable, status FROM garden WHERE user_id=%s AND slot=%s', (user_id, slot))
-    row = c.fetchone()
-    if not row or row[1] != 'ready':
-        conn.close()
-        return None
-    veg = row[0]
-    col = VEG_COLUMNS.get(veg)
-    if col:
-        c.execute(f'UPDATE users SET {col}={col}+1 WHERE user_id=%s', (user_id,))
-    c.execute('''
-        UPDATE garden SET status='empty', planted_at=NULL, vegetable=NULL, chat_id=NULL, message_id=NULL
-        WHERE user_id=%s AND slot=%s
-    ''', (user_id, slot))
-    conn.commit()
-    conn.close()
-    return veg
-
-def get_ready_to_harvest():
-    conn = get_conn()
-    c = conn.cursor()
-    threshold = (datetime.now() - timedelta(minutes=30)).isoformat()
-    c.execute('''
-        SELECT user_id, slot, chat_id, message_id
-        FROM garden WHERE status='growing' AND planted_at <= %s
-    ''', (threshold,))
-    rows = c.fetchall()
-    conn.close()
-    return rows
-
 def check_and_give_achievements(user_id, chat_id):
     conn = get_conn()
     c = conn.cursor()
@@ -629,36 +549,6 @@ def check_and_give_achievements(user_id, chat_id):
 
     conn.close()
 
-# ===== ОГОРОД UI =====
-def garden_text(user_id):
-    user = get_user(user_id)
-    seeds = user[4] if user else 0
-    bait  = user[5] if user else 0
-    return (f"🪏 ОГОРОД 🪏\n🌱 Семян: {seeds}\n🪱 Червей: {bait}\n- - - - - - - - - - - - - -")
-
-def garden_keyboard(user_id):
-    slots = get_garden(user_id)
-    markup = InlineKeyboardMarkup(row_width=5)
-    buttons = []
-    for slot, status, planted_at, vegetable in slots:
-        if status == 'empty':
-            btn = InlineKeyboardButton("🪏Посадить", callback_data=f"plant_{slot}")
-        elif status == 'growing':
-            planted = datetime.fromisoformat(planted_at)
-            remaining = (planted + timedelta(minutes=30)) - datetime.now()
-            if remaining.total_seconds() <= 0:
-                btn = InlineKeyboardButton("🌱 Готово!", callback_data=f"harvest_{slot}")
-            else:
-                mins = int(remaining.total_seconds() // 60)
-                btn = InlineKeyboardButton(f"🌱 {mins}мин", callback_data=f"growing_{slot}")
-        elif status == 'ready':
-            btn = InlineKeyboardButton(f"{vegetable} Собрать!", callback_data=f"harvest_{slot}")
-        else:
-            btn = InlineKeyboardButton("🪏Посадить", callback_data=f"plant_{slot}")
-        buttons.append(btn)
-    markup.add(*buttons)
-    return markup
-
 def shop_keyboard():
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
@@ -669,22 +559,6 @@ def shop_keyboard():
     return markup
 
 # ===== ФОНОВЫЕ ПОТОКИ =====
-def garden_checker():
-    while True:
-        try:
-            # Огород
-            ready = get_ready_to_harvest()
-            for user_id, slot, chat_id, message_id in ready:
-                veg = random_vegetable()
-                mark_slot_ready(user_id, slot, veg)
-                if chat_id and message_id:
-                    try:
-                        bot.edit_message_text(garden_text(user_id), chat_id=chat_id,
-                            message_id=message_id, reply_markup=garden_keyboard(user_id))
-                    except: pass
-        except Exception as e:
-            print(f"Checker error: {e}")
-        time.sleep(30)
 
 def run_bot():
     while True:
@@ -830,20 +704,6 @@ def cmd_casino(message):
         reply_markup=markup
     )
 
-@bot.message_handler(commands=['garden'])
-def cmd_garden(message):
-    user_id = message.from_user.id
-    username = message.from_user.username or message.from_user.first_name
-    register_user(user_id, username)
-    msg = bot.send_message(message.chat.id, garden_text(user_id), reply_markup=garden_keyboard(user_id))
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute('''UPDATE garden SET chat_id=%s, message_id=%s
-                 WHERE user_id=%s AND status IN ('growing','ready')''',
-              (message.chat.id, msg.message_id, user_id))
-    conn.commit()
-    conn.close()
-
 @bot.message_handler(commands=['bag'])
 def cmd_bag(message):
     user_id = message.from_user.id
@@ -929,58 +789,6 @@ def cmd_shop(message):
         f"🥚 Яиц: {eggs}\n"
         f"{sep}",
         reply_markup=shop_keyboard()
-    )
-
-@bot.message_handler(commands=['sell'])
-def cmd_sell(message):
-    user_id = message.from_user.id
-    username = message.from_user.username or message.from_user.first_name
-    register_user(user_id, username)
-    user = get_user(user_id)
-
-    prices = {
-        "🥔": ("potato",        user[7],  8),
-        "🥕": ("carrot",        user[8],  15),
-        "🍅": ("tomato",        user[9],  20),
-        "🍆": ("eggplant",      user[10], 35),
-        "🎃": ("pumpkin",       user[11], 80),
-        "🐟": ("fish",          user[12], 10),
-        "🐠": ("tropical_fish", user[13], 20),
-        "🦀": ("crab",          user[14], 45),
-        "🦞": ("lobster",       user[15], 70),
-        "🦑": ("squid",         user[16], 90),
-        "🦈": ("shark",         user[17], 200),
-        "🐉": ("dragonfish",    user[18], 500),
-    }
-
-    total = 0
-    sold_lines = []
-
-    conn = get_conn()
-    c = conn.cursor()
-
-    for emoji, (col, count, price) in prices.items():
-        if count > 0:
-            earned = count * price
-            total += earned
-            sold_lines.append(f"{emoji} × {count}  →  {earned} 💵")
-            c.execute(f'UPDATE users SET {col}=0 WHERE user_id=%s', (user_id,))
-
-    if total == 0:
-        conn.close()
-        bot.send_message(message.chat.id, "❌ Нечего продавать!\nСобери урожай /garden")
-        return
-
-    c.execute('UPDATE users SET money=money+%s WHERE user_id=%s', (total, user_id))
-    conn.commit()
-    conn.close()
-
-    sold_text = "\n".join(sold_lines)
-    bot.send_message(
-        message.chat.id,
-        f"🛒 *Продано:*\n{sold_text}\n\n"
-        f"💰 *Получено: +{total} 💵*",
-        parse_mode='Markdown'
     )
 
 ADMIN_USERNAME = "Sid_17jj"
@@ -1092,25 +900,6 @@ def cmd_zoo(message):
 
 # ===== КОЛБЭКИ =====
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('plant_'))
-def callback_plant(call):
-    user_id = call.from_user.id
-    slot = int(call.data.split('_')[1])
-    user = get_user(user_id)
-    if not user or user[4] < 1:
-        bot.answer_callback_query(call.id, "❌ Нет семян!")
-        return
-    plant_seed(user_id, slot, call.message.chat.id, call.message.message_id)
-    bot.edit_message_text(garden_text(user_id), chat_id=call.message.chat.id,
-                          message_id=call.message.message_id, reply_markup=garden_keyboard(user_id))
-    bot.answer_callback_query(call.id, "🌱 Семя посажено!")
-    conn2 = get_conn()
-    c2 = conn2.cursor()
-    c2.execute('UPDATE users SET seeds_planted=seeds_planted+1 WHERE user_id=%s', (user_id,))
-    conn2.commit()
-    conn2.close()
-    check_and_give_achievements(user_id, call.message.chat.id)
-
 # Обработка текстового ввода ставки для кубика (ПЕРВЫМ чтобы не перехватил слот)
 @bot.message_handler(func=lambda message: message.from_user.id in pending_dice and pending_dice[message.from_user.id].get('status') == 'waiting')
 def handle_dice_bet_input(message):
@@ -1192,52 +981,6 @@ def handle_slot_bet_input(message):
         f"{sep}",
         reply_markup=markup
     )
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('growing_'))
-def callback_growing(call):
-    bot.answer_callback_query(call.id, "⏳ Ещё растёт, подожди!")
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('harvest_'))
-def callback_harvest(call):
-    user_id = call.from_user.id
-    slot = int(call.data.split('_')[1])
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute('SELECT status, planted_at FROM garden WHERE user_id=%s AND slot=%s', (user_id, slot))
-    row = c.fetchone()
-    conn.close()
-    if row and row[0] == 'growing':
-        planted = datetime.fromisoformat(row[1])
-        if datetime.now() - planted >= timedelta(minutes=30):
-            mark_slot_ready(user_id, slot, random_vegetable())
-        else:
-            bot.answer_callback_query(call.id, "⏳ Ещё не выросло!")
-            return
-    veg = harvest_slot(user_id, slot)
-    if veg:
-        exp_gain = random.randint(20, 50)
-        add_exp(user_id, exp_gain, call.message.chat.id)
-        conn2 = get_conn()
-        c2 = conn2.cursor()
-        c2.execute('UPDATE users SET vegs_harvested=vegs_harvested+1 WHERE user_id=%s', (user_id,))
-        conn2.commit()
-        conn2.close()
-        try:
-            check_and_give_achievements(user_id, call.message.chat.id)
-        except Exception as e:
-            print(f"ERROR achievements harvest: {e}")
-
-        bonus_worm = ""
-        if random.randint(1, 10) == 1:
-            add_bait(user_id, 1)
-            bonus_worm = "  +1 🪱"
-
-        bot.answer_callback_query(call.id, f"+1 {veg}! +{exp_gain} 🌟{bonus_worm}")
-        bot.send_message(call.message.chat.id, f"+1 {veg}  |  +{exp_gain} 🌟 Опыта{bonus_worm}")
-        bot.edit_message_text(garden_text(user_id), chat_id=call.message.chat.id,
-                              message_id=call.message.message_id, reply_markup=garden_keyboard(user_id))
-    else:
-        bot.answer_callback_query(call.id, "❌ Ошибка!")
 
 @bot.callback_query_handler(func=lambda call: call.data == 'buy_seeds')
 def callback_buy_seeds(call):
@@ -2584,6 +2327,11 @@ def cmd_myluck(message):
 register_fishing_handlers(
     bot, get_conn, get_user, add_exp, add_money,
     add_bait, spend_money, check_and_give_achievements
+)
+
+# ===== ОГОРОД (новый) =====
+register_garden_handlers(
+    bot, get_conn, get_user, add_exp, add_money, spend_money
 )
 
 # ===== ЗАПУСК =====
