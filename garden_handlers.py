@@ -601,8 +601,9 @@ def register_garden_handlers(bot, get_conn, get_user, add_exp, add_money, spend_
         slot_num = int(parts[3])
 
         ferts = _get_fertilizers(user_id)
-        if not ferts:
-            bot.answer_callback_query(call.id, "❌ Нет удобрений!")
+        slot_row = _get_slot(user_id, bed_num, slot_num)
+        if slot_row and (slot_row.get('fert_growth') or slot_row.get('fert_quality') or slot_row.get('fert_yield')):
+            bot.answer_callback_query(call.id, "❌ Удобрение уже применено!")
             return
 
         lines = []
