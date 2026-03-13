@@ -14,6 +14,7 @@ _get_user    = None
 _add_exp     = None
 _add_money   = None
 _spend_money = None
+_check_achievements = None
 
 # ============================================================
 # DB ФУНКЦИИ
@@ -246,10 +247,8 @@ def _harvest_slot(user_id, bed_num, slot_num, slot_row):
     crop_e  = slot_row['crop_emoji']
     qual    = G.roll_quality(slot_row.get('fert_quality', 0))
     count   = 1 + slot_row.get('fert_yield', 0)
-    price   = int(G.CROPS[crop_e]['price'] * G.quality_mult(qual)) * count
-
+    
     _add_to_inventory(user_id, crop_e, qual, count)
-    _add_money(user_id, price)
     _log_harvest(user_id, crop_e, qual)
 
     bed_info = G.BED_TYPES.get(bed_num, {})
@@ -258,7 +257,13 @@ def _harvest_slot(user_id, bed_num, slot_num, slot_row):
     else:
         _clear_slot(user_id, bed_num, slot_num)
 
-    return crop_e, qual, count, price
+    conn2 = _get_conn()
+    c2    = conn2.cursor()
+    c2.execute('UPDATE users SET vegs_harvested=vegs_harvested+1 WHERE user_id=%s', (user_id,))
+    conn2.commit()
+    conn2.close()
+
+    return crop_e, qual, count
 
 # ============================================================
 # СТАТИСТИКА ДЛЯ ГЛАВНОГО МЕНЮ
@@ -441,13 +446,14 @@ def _plant_choice_markup(user_id, bed_num, slot_num):
 # РЕГИСТРАЦИЯ ХЭНДЛЕРОВ
 # ============================================================
 
-def register_garden_handlers(bot, get_conn, get_user, add_exp, add_money, spend_money):
+def register_garden_handlers(bot, get_conn, get_user, add_exp, add_money, spend_money, check_achievements):
     global _get_conn, _get_user, _add_exp, _add_money, _spend_money
     _get_conn    = get_conn
     _get_user    = get_user
     _add_exp     = add_exp
     _add_money   = add_money
     _spend_money = spend_money
+    _check_achievements = check_achievements
 
     _init_garden_db()
 
@@ -521,10 +527,15 @@ def register_garden_handlers(bot, get_conn, get_user, add_exp, add_money, spend_
             # Созрело — собрать
             result = _harvest_slot(user_id, bed_num, slot_num, slot_row)
             if result:
-                crop_e, qual, count, price = result
+                crop_e, qual, count = result
                 name = G.CROPS.get(crop_e, {}).get('name', crop_e)
                 bot.answer_callback_query(call.id,
-                    f"+{count}{crop_e} {G.quality_str(qual)} | +💵{price}")
+                    f"+{count}{crop_e} {G.quality_str(qual)}")
+                threading.Thread(
+            target=_check_achievements,
+            args=(user_id, call.message.chat.id),
+            daemon=True
+        ).start()
             try:
                 bot.edit_message_text(
                     _bed_menu_text(user_id, bed_num),
@@ -562,6 +573,12 @@ def register_garden_handlers(bot, get_conn, get_user, add_exp, add_money, spend_
         slot_row = _get_slot(user_id, bed_num, slot_num)
         name     = G.CROPS.get(crop_e, {}).get('name', crop_e)
         bot.answer_callback_query(call.id, f"🌱 Посажено: {crop_e} {name}")
+
+        conn2 = _get_conn()
+        c2    = conn2.cursor()
+        c2.execute('UPDATE users SET seeds_planted=seeds_planted+1 WHERE user_id=%s', (user_id,))
+        conn2.commit()
+        conn2.close()
 
         try:
             bot.edit_message_text(
@@ -728,11 +745,16 @@ def register_garden_handlers(bot, get_conn, get_user, add_exp, add_money, spend_
             if s['crop_emoji'] and G.is_ready(s):
                 result = _harvest_slot(user_id, bed_num, s['slot'], s)
                 if result:
-                    crop_e, qual, count, price = result
+                    crop_e, qual, count = result
                     name = G.CROPS.get(crop_e, {}).get('name', crop_e)
-                    results.append(f"+{count}{crop_e} {name} {G.quality_str(qual)} | +💵{price}")
+                    results.append(f"+{count}{crop_e} {name} {G.quality_str(qual)}")
 
         if results:
+            threading.Thread(
+            target=_check_achievements,
+            args=(user_id, call.message.chat.id),
+            daemon=True
+        ).start()
             bot.send_message(call.message.chat.id,
                 "🧺 Собрано:\n" + "\n".join(results))
         else:
