@@ -2342,7 +2342,6 @@ bot.delete_webhook(drop_pending_updates=True)
 time.sleep(15)
 print("Бот запущен!")
 
-threading.Thread(target=garden_checker, daemon=True).start()
 threading.Thread(
     target=traps_checker_loop,
     args=(bot, get_conn),
