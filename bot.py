@@ -2331,8 +2331,8 @@ register_fishing_handlers(
 
 # ===== ОГОРОД (новый) =====
 register_garden_handlers(
-    bot, get_conn, get_user, add_exp, add_money, spend_money
-)
+    bot, get_conn, get_user, add_exp, add_money, spend_money, check_and_give_achievements
+    )
 
 # ===== ЗАПУСК =====
 init_db()
