@@ -196,7 +196,7 @@ def _plant_slot(user_id, bed_num, slot_num, crop_emoji):
     conn = _get_conn()
     c    = conn.cursor()
     c.execute('''UPDATE garden_plots SET crop_emoji=%s, planted_at=%s,
-                 watered_at=NULL, fert_growth=0, fert_quality=0, fert_yield=0
+                 watered_at=NULL, fert_growth=0, fert_quality=0, fert_yield=0, fert_name=NULL
                  WHERE user_id=%s AND bed=%s AND slot=%s''',
               (crop_emoji, datetime.now().isoformat(), user_id, bed_num, slot_num))
     conn.commit()
@@ -605,6 +605,12 @@ def register_garden_handlers(bot, get_conn, get_user, add_exp, add_money, spend_
         parts    = call.data.split('_')
         bed_num  = int(parts[2])
         slot_num = int(parts[3])
+
+        slot_row = _get_slot(user_id, bed_num, slot_num)
+        ws, has_water = G.water_status(slot_row)
+        if has_water:
+            bot.answer_callback_query(call.id, "❎ Растение уже полито!")
+            return
 
         _water_slot(user_id, bed_num, slot_num)
         slot_row = _get_slot(user_id, bed_num, slot_num)
