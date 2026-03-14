@@ -381,13 +381,13 @@ def register_user(user_id, username):
     conn.commit()
     conn.close()
 
-def update_daily(user_id, money, exp, seeds, bait, timestamp):
+def update_daily(user_id, money, exp, bait, timestamp):
     conn = get_conn()
     c = conn.cursor()
     c.execute('''
-        UPDATE users SET money=money+%s, exp=exp+%s, seeds=seeds+%s, bait=bait+%s, last_daily=%s
+        UPDATE users SET money=money+%s, exp=exp+%s, bait=bait+%s, last_daily=%s
         WHERE user_id=%s
-    ''', (money, exp, seeds, bait, timestamp, user_id))
+    ''', (money, exp, bait, timestamp, user_id))
     conn.commit()
     conn.close()
 
