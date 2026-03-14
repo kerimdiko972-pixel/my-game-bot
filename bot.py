@@ -495,20 +495,18 @@ def check_rank_up(user_id, chat_id):
         if current_exp >= min_exp and i > stored_index:
             rewards = RANK_REWARDS.get(rank_name, {})
             money = rewards.get("money", 0)
-            seeds = rewards.get("seeds", 0)
             bait  = rewards.get("bait", 0)
             eggs  = rewards.get("eggs", 0)
 
             conn = get_conn()
             c = conn.cursor()
-            c.execute('''UPDATE users SET rank_index=%s, money=money+%s, seeds=seeds+%s,
+            c.execute('''UPDATE users SET rank_index=%s, money=money+%s,
                          bait=bait+%s, eggs=eggs+%s WHERE user_id=%s''',
-                      (i, money, seeds, bait, eggs, user_id))
+                      (i, money, bait, eggs, user_id))
             conn.commit()
             conn.close()
 
             reward_lines = [f"💵 +{money}"]
-            if seeds: reward_lines.append(f"🌱 +{seeds} Семян")
             if bait:  reward_lines.append(f"🪱 +{bait} Наживок")
             if eggs:  reward_lines.append(f"🥚 +{eggs} Яиц")
 
