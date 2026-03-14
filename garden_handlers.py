@@ -334,7 +334,7 @@ def _main_menu_markup():
     m.add(InlineKeyboardButton("🌱 Грядки", callback_data="grd_beds_1"))
     m.add(
         InlineKeyboardButton("🛍️ Магазин",  callback_data="grd_shop_1"),
-        InlineKeyboardButton("🏭 Здания",    callback_data="grd_wip"),
+        InlineKeyboardButton("🏭 Здания",    callback_data="grd_buildings"),
     )
     m.add(
         InlineKeyboardButton("📋 Задания",   callback_data="grd_wip"),
@@ -938,8 +938,18 @@ def register_garden_handlers(bot, get_conn, get_user, add_exp, add_money, spend_
         text += ("\n".join(crop_lines) if crop_lines else "  пусто") + "\n\n"
         text += "– Семена/Саженцы –\n"
         text += ("\n".join(seed_lines) if seed_lines else "  пусто") + "\n\n"
+        # Товары из зданий
+        from garden_buildings import _get_goods_inventory, RECIPES, quality_str as bq_str
+        goods      = _get_goods_inventory(user_id)
+        goods_lines = []
+        for rk, qual, cnt in goods:
+            rec = RECIPES.get(rk, {})
+            goods_lines.append(f"  {rec.get('emoji','')} {rec.get('name', rk)} {bq_str(qual)} ×{cnt}")
+
         text += "– Удобрения –\n"
         text += ("\n".join(fert_lines) if fert_lines else "  пусто") + "\n\n"
+        text += "– Товары –\n"
+        text += ("\n".join(goods_lines) if goods_lines else "  пусто") + "\n\n"
         text += G.SEP2
 
         m = InlineKeyboardMarkup()
