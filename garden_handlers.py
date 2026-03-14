@@ -308,6 +308,8 @@ def _garden_stats(user_id):
 # ============================================================
 
 def _main_menu_text(user_id):
+    import garden as G
+    w_emoji, w_name, w_effect = G.weather_info()
     user    = _get_user(user_id)
     money   = user[2] if user else 0
     exp     = user[3] if user else 0
@@ -318,7 +320,7 @@ def _main_menu_text(user_id):
         f"💰 Деньги: 💵 {money}\n"
         f"⭐ Опыт: {exp}\n\n"
         f"{G.SEP}\n\n"
-        f"Погода: ☀️ Ясно\nЭффект: —\n\n"
+        f"Погода: {w_emoji} {w_name}\nЭффект: {w_effect}\n\n"
         f"🎲 Событие: —\n\n"
         f"{G.SEP}\n\n"
         f"🪏 Посажено: {planted}\n"
@@ -353,10 +355,12 @@ def _seeds_text(user_id):
     return "📦 Семена:\n" + "\n".join(lines)
 
 def _bed_menu_text(user_id, bed_num):
+    import garden as G
+    w_emoji, w_name, w_effect = G.weather_info()
     binfo = G.BED_TYPES[bed_num]
     return (
         f"— – – 🪏 ГРЯДКА №{bed_num} 🪏 – – —\n\n"
-        f"Погода: ☀️ Ясно\nЭффект: —\n\n"
+        f"Погода: {w_emoji} {w_name}\nЭффект: {w_effect}\n\n"
         f"🎲 Событие: —\n\n"
         f"{G.SEP}\n\n"
         f"{_seeds_text(user_id)}\n\n"
@@ -391,6 +395,8 @@ def _bed_markup(user_id, bed_num):
     return m
 
 def _slot_info_text(user_id, bed_num, slot_num, slot_row):
+    import garden as G
+    w_emoji, w_name, w_effect = G.weather_info()
     crop_e = slot_row['crop_emoji']
     crop   = G.CROPS.get(crop_e, {})
     name   = crop.get('name', crop_e)
@@ -401,7 +407,7 @@ def _slot_info_text(user_id, bed_num, slot_num, slot_row):
 
     return (
         f"— – – 🪏 ГРЯДКА №{bed_num} 🪏 – – —\n\n"
-        f"Погода: ☀️ Ясно\nЭффект: —\n\n"
+        f"Погода: {w_emoji} {w_name}\nЭффект: {w_effect}\n\n"
         f"🎲 Событие: —\n\n"
         f"{G.SEP}\n\n"
         f"{grow_e} {crop_e}{name}\n\n"
@@ -425,9 +431,11 @@ def _slot_info_markup(bed_num, slot_num):
     return m
 
 def _plant_choice_text(user_id, bed_num, slot_num):
+    import garden as G
+    w_emoji, w_name, w_effect = G.weather_info()
     return (
         f"— – – 🪏 ГРЯДКА №{bed_num} 🪏 – – —\n\n"
-        f"Погода: ☀️ Ясно\nЭффект: —\n\n"
+        f"Погода: {w_emoji} {w_name}\nЭффект: {w_effect}\n\n"
         f"🎲 Событие: —\n\n"
         f"{G.SEP}\n\n"
         f"{_seeds_text(user_id)}\n\n"
