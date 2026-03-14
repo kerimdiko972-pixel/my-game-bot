@@ -339,7 +339,7 @@ def _main_menu_markup():
         InlineKeyboardButton("🏭 Здания",    callback_data="grd_buildings"),
     )
     m.add(
-        InlineKeyboardButton("📋 Задания",   callback_data="grd_wip"),
+        InlineKeyboardButton("📋 Задания", callback_data="grd_quests"),
         InlineKeyboardButton("📦 Инвентарь", callback_data="grd_inventory"),
     )
     return m
