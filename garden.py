@@ -92,7 +92,7 @@ WEATHER_TYPES = {
 }
 
 WEATHER_WEIGHTS      = {'cloudy': 50, 'partly_cloudy': 30, 'sunny': 10, 'rain': 7, 'sunny_rain': 3}
-WEATHER_CHANGE_HOURS = 6
+WEATHER_CHANGE_HOURS = 2.5
 
 _current_weather_key = 'cloudy'
 
