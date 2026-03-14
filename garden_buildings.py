@@ -210,7 +210,8 @@ def _init_buildings_db():
         finished_at  TEXT    DEFAULT NULL,
         is_done      BOOLEAN DEFAULT FALSE,
         ing_used     TEXT    DEFAULT NULL,
-        quality      INTEGER DEFAULT 0
+        quality      INTEGER DEFAULT 0,
+        UNIQUE (user_id, bld_key, slot_num)
     )''')
     # Инвентарь товаров
     c.execute('''CREATE TABLE IF NOT EXISTS goods_inventory (
@@ -225,6 +226,12 @@ def _init_buildings_db():
     # Миграция: убедимся что у всех пользователей есть строки зданий
     try:
         c.execute("ALTER TABLE cooking_slots ADD COLUMN IF NOT EXISTS ing_used TEXT DEFAULT NULL")
+        conn.commit()
+    except: conn.rollback()
+    try:
+        c.execute('''ALTER TABLE cooking_slots
+                     ADD CONSTRAINT cooking_slots_unique
+                     UNIQUE (user_id, bld_key, slot_num)''')
         conn.commit()
     except: conn.rollback()
     try:
