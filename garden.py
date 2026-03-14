@@ -19,7 +19,8 @@ BED_TYPES = {
 # ============================================================
 CROPS = {
     # Земля
-    '🥔': {'bed': 1, 'name': 'Картошка',          'grow_min': 30,  'price': 70,   'seed_price': 15},
+    '🥔': {'bed': 1, 'name': 'Картошка',           'grow_min': 30,  'price': 70,   'seed_price': 15},
+    '🌾': {'bed': 1, 'name': 'Пшеница',            'grow_min': 15,  'price': 90,   'seed_price': 40},
     '🥕': {'bed': 1, 'name': 'Морковь',            'grow_min': 20,  'price': 40,   'seed_price': 10},
     '🌽': {'bed': 1, 'name': 'Кукуруза',           'grow_min': 60,  'price': 200,  'seed_price': 50},
     '🫜': {'bed': 1, 'name': 'Свёкла',             'grow_min': 45,  'price': 90,   'seed_price': 20},
