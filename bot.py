@@ -278,6 +278,19 @@ def init_db():
         )
     ''')
 
+    c.execute('''CREATE TABLE IF NOT EXISTS garden_weather (
+        id          INTEGER PRIMARY KEY DEFAULT 1,
+        weather_key TEXT DEFAULT 'cloudy',
+        changed_at  TEXT DEFAULT NULL
+    )''')
+    conn.commit()
+    # Инициализируем первую запись погоды
+    try:
+        c.execute("INSERT INTO garden_weather (id, weather_key, changed_at) VALUES (1, 'cloudy', %s) ON CONFLICT DO NOTHING",
+                  (datetime.now().isoformat(),))
+        conn.commit()
+    except: conn.rollback()
+
     c.execute('''
         CREATE TABLE IF NOT EXISTS traps (
             user_id    BIGINT,
@@ -381,6 +394,42 @@ def register_user(user_id, username):
     conn.commit()
     conn.close()
 
+# Загружаем текущую погоду из БД
+def load_weather():
+    import garden as G
+    try:
+        conn = get_conn()
+        c    = conn.cursor()
+        c.execute('SELECT weather_key FROM garden_weather WHERE id=1')
+        r = c.fetchone()
+        conn.close()
+        if r:
+            G.set_weather(r[0])
+    except: pass
+
+load_weather()
+
+def weather_checker():
+    import garden as G
+    while True:
+        try:
+            conn = get_conn()
+            c    = conn.cursor()
+            c.execute('SELECT weather_key, changed_at FROM garden_weather WHERE id=1')
+            r = c.fetchone()
+            if r:
+                changed_at = datetime.fromisoformat(r[1]) if r[1] else datetime.min
+                if (datetime.now() - changed_at).total_seconds() >= G.WEATHER_CHANGE_HOURS * 3600:
+                    new_weather = G.roll_weather()
+                    G.set_weather(new_weather)
+                    c.execute('UPDATE garden_weather SET weather_key=%s, changed_at=%s WHERE id=1',
+                              (new_weather, datetime.now().isoformat()))
+                    conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Weather checker error: {e}")
+        time.sleep(60)
+        
 def update_daily(user_id, money, exp, bait, timestamp):
     conn = get_conn()
     c = conn.cursor()
@@ -2414,6 +2463,7 @@ bot.delete_webhook(drop_pending_updates=True)
 time.sleep(15)
 print("Бот запущен!")
 
+threading.Thread(target=weather_checker, daemon=True).start()
 threading.Thread(
     target=buildings_checker_loop,
     args=(bot, get_conn, get_user),
