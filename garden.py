@@ -49,30 +49,36 @@ def crops_by_bed(bed_num):
 # КАЧЕСТВО
 # ============================================================
 QUALITY_LEVELS = [
-    (1, '⭐',       1.0,  65),
+    (1, '⭐',       1.0,  60),
     (2, '⭐⭐',     1.5,  25),
     (3, '⭐⭐⭐',   2.0,  10),
+    (4, '⭐⭐⭐⭐',     3.0,  4),
+    (5, '⭐⭐⭐⭐⭐',   5.0,  1),
 ]
 
 def roll_quality(quality_bonus_pct=0):
-    """Случайное качество с учётом бонуса в %."""
     r = random.random() * 100
-    # Перераспределяем: бонус уходит из ⭐ в ⭐⭐⭐
-    w1 = max(0, 65 - quality_bonus_pct * 0.65)
+    w1 = max(0, 60 - quality_bonus_pct * 0.60)
     w2 = 25
-    w3 = 10 + quality_bonus_pct * 0.65
+    w3 = 10
+    w4 = 4  + quality_bonus_pct * 0.04
+    w5 = 1  + quality_bonus_pct * 0.56
     if r < w1:
         return 1
     elif r < w1 + w2:
         return 2
-    else:
+    elif r < w1 + w2 + w3:
         return 3
+    elif r < w1 + w2 + w3 + w4:
+        return 4
+    else:
+        return 5
 
 def quality_str(q):
-    return {1: '⭐', 2: '⭐⭐', 3: '⭐⭐⭐'}.get(q, '⭐')
+    return {1: '⭐', 2: '⭐⭐', 3: '⭐⭐⭐', 4: '⭐⭐⭐⭐', 5: '⭐⭐⭐⭐⭐'}.get(q, '⭐')
 
 def quality_mult(q):
-    return {1: 1.0, 2: 1.5, 3: 2.0}.get(q, 1.0)
+    return {1: 1.0, 2: 1.5, 3: 2.0, 4: 3.0, 5: 5.0}.get(q, 1.0)
 
 # ============================================================
 # УДОБРЕНИЯ
