@@ -619,14 +619,12 @@ def cmd_daily(message):
             return
     money = random.randint(100, 1000)
     exp   = random.randint(5, 20)
-    seeds = random.randint(1, 3)
     bait  = random.randint(1, 3)
-    update_daily(user_id, money, exp, seeds, bait, now.isoformat())
+    update_daily(user_id, money, exp, bait, now.isoformat())
     bot.send_message(message.chat.id,
         f"🎁 Ежедневная награда 🎁\n\n"
         f"+ {money} 💵 Денег\n"
         f"+ {exp} 🌟 Опыта\n"
-        f"+ {seeds} 🌱 Семян\n"
         f"+ {bait} 🪱 Наживок\n\n"
         f"⏳ Ожидай следующую награду через 24:00")
 
