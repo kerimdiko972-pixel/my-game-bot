@@ -245,16 +245,11 @@ def _ensure_building_rows(user_id):
     conn = _get_conn()
     c    = conn.cursor()
     for bk, bd in BUILDINGS.items():
-        unlocked = bd['unlock_price'] == 0  # кухня открыта сразу
+        unlocked = bd['unlock_price'] == 0
         c.execute(
             'INSERT INTO farm_buildings (user_id, bld_key, unlocked) VALUES (%s,%s,%s) ON CONFLICT DO NOTHING',
             (user_id, bk, unlocked)
         )
-        for s in range(1, bd['slots'] + 1):
-            c.execute(
-                'INSERT INTO cooking_slots (user_id, bld_key, slot_num) VALUES (%s,%s,%s) ON CONFLICT DO NOTHING',
-                (user_id, bk, s)
-            )
     conn.commit()
     conn.close()
 
@@ -274,18 +269,34 @@ def _unlock_building(user_id, bld_key):
     conn.close()
 
 def _get_cooking_slots(user_id, bld_key):
+    """Всегда возвращает ровно 5 слотов. Пустые — генерируются, не хранятся."""
     conn = _get_conn()
     c    = conn.cursor()
     c.execute(
         'SELECT id,slot_num,recipe_key,started_at,finished_at,is_done,ing_used,quality '
-        'FROM cooking_slots WHERE user_id=%s AND bld_key=%s ORDER BY slot_num',
+        'FROM cooking_slots WHERE user_id=%s AND bld_key=%s AND recipe_key IS NOT NULL',
         (user_id, bld_key)
     )
     rows = c.fetchall()
     conn.close()
-    return [{'id': r[0], 'slot_num': r[1], 'recipe_key': r[2], 'started_at': r[3],
-             'finished_at': r[4], 'is_done': r[5], 'ing_used': r[6], 'quality': r[7]}
-            for r in rows]
+
+    # Строим словарь занятых слотов
+    filled = {}
+    for r in rows:
+        filled[r[1]] = {'id': r[0], 'slot_num': r[1], 'recipe_key': r[2],
+                        'started_at': r[3], 'finished_at': r[4],
+                        'is_done': r[5], 'ing_used': r[6], 'quality': r[7]}
+
+    # Возвращаем ровно 5 слотов
+    result = []
+    for s in range(1, 6):
+        if s in filled:
+            result.append(filled[s])
+        else:
+            result.append({'id': None, 'slot_num': s, 'recipe_key': None,
+                           'started_at': None, 'finished_at': None,
+                           'is_done': False, 'ing_used': None, 'quality': 0})
+    return result
 
 def _start_cooking(user_id, bld_key, slot_num, recipe_key, ing_used_str, quality):
     recipe = RECIPES[recipe_key]
@@ -293,11 +304,16 @@ def _start_cooking(user_id, bld_key, slot_num, recipe_key, ing_used_str, quality
     finish = now + timedelta(minutes=recipe['time_min'])
     conn   = _get_conn()
     c      = conn.cursor()
-    c.execute('''UPDATE cooking_slots SET recipe_key=%s, started_at=%s, finished_at=%s,
-                 is_done=FALSE, ing_used=%s, quality=%s
-                 WHERE user_id=%s AND bld_key=%s AND slot_num=%s''',
-              (recipe_key, now.isoformat(), finish.isoformat(),
-               ing_used_str, quality, user_id, bld_key, slot_num))
+    # INSERT вместо UPDATE — слоты больше не хранятся заранее
+    c.execute('''INSERT INTO cooking_slots
+                 (user_id, bld_key, slot_num, recipe_key, started_at, finished_at, is_done, ing_used, quality)
+                 VALUES (%s,%s,%s,%s,%s,%s,FALSE,%s,%s)
+                 ON CONFLICT (user_id, bld_key, slot_num) DO UPDATE SET
+                     recipe_key=%s, started_at=%s, finished_at=%s,
+                     is_done=FALSE, ing_used=%s, quality=%s''',
+              (user_id, bld_key, slot_num, recipe_key,
+               now.isoformat(), finish.isoformat(), ing_used_str, quality,
+               recipe_key, now.isoformat(), finish.isoformat(), ing_used_str, quality))
     conn.commit()
     conn.close()
 
@@ -540,7 +556,6 @@ def register_buildings_handlers(bot, get_conn, get_user, add_exp, spend_money):
     @bot.callback_query_handler(func=lambda c: c.data == 'bld_main')
     def cb_bld_main(call):
         user_id = call.from_user.id
-        _ensure_building_rows(user_id)
         try:
             bot.edit_message_text(
                 _buildings_main_text(user_id),
@@ -555,7 +570,6 @@ def register_buildings_handlers(bot, get_conn, get_user, add_exp, spend_money):
     @bot.callback_query_handler(func=lambda c: c.data == 'grd_buildings')
     def cb_grd_buildings(call):
         user_id = call.from_user.id
-        _ensure_building_rows(user_id)
         try:
             bot.edit_message_text(
                 _buildings_main_text(user_id),
@@ -571,7 +585,6 @@ def register_buildings_handlers(bot, get_conn, get_user, add_exp, spend_money):
     def cb_bld_open(call):
         user_id  = call.from_user.id
         bld_key  = call.data[len('bld_open_'):]
-        _ensure_building_rows(user_id)
         bd = BUILDINGS.get(bld_key)
         if not bd:
             bot.answer_callback_query(call.id, "❌ Ошибка!")
