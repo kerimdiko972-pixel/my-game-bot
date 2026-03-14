@@ -2323,7 +2323,32 @@ def cmd_myluck(message):
     user = get_user(user_id)
     luck = user[29] if user and len(user) > 29 else 0
     bot.send_message(message.chat.id, f"🍀 Твоя удача: {luck}")
-    
+
+@bot.message_handler(commands=['fixslots'])
+def cmd_fixslots(message):
+    if message.from_user.username != ADMIN_USERNAME:
+        return
+    conn = get_conn()
+    c    = conn.cursor()
+    try:
+        # Удаляем все дубли — оставляем только строку с минимальным id
+        c.execute('''
+            DELETE FROM cooking_slots
+            WHERE id NOT IN (
+                SELECT MIN(id)
+                FROM cooking_slots
+                GROUP BY user_id, bld_key, slot_num
+            )
+        ''')
+        deleted = c.rowcount
+        conn.commit()
+        bot.send_message(message.chat.id, f"✅ Удалено дублей: {deleted}")
+    except Exception as e:
+        conn.rollback()
+        bot.send_message(message.chat.id, f"❌ Ошибка: {e}")
+    finally:
+        conn.close()
+
 # ===== РЫБАЛКА (новая) =====
 register_fishing_handlers(
     bot, get_conn, get_user, add_exp, add_money,
