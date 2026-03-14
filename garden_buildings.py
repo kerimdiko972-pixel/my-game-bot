@@ -602,7 +602,7 @@ def register_buildings_handlers(bot, get_conn, get_user, add_exp, spend_money):
             bot.answer_callback_query(call.id, "❌ Ошибка!")
             return
 
-        if not _is_unlocked(user_id, bld_key):
+        if not _is_unlocked(user_id, bld_key) and bld_key != 'kitchen':
             # Показываем заблокированное здание
             user  = _get_user(user_id)
             money = user[2] if user else 0
