@@ -12,6 +12,7 @@ from config import BOT_TOKEN
 from slot_machine import sm_spin, sm_check_wins, sm_render_grid, sm_win_line, sm_total
 from fishing_handlers import register_fishing_handlers, traps_checker_loop
 from garden_handlers import register_garden_handlers
+from garden_buildings import register_buildings_handlers, buildings_checker_loop
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, use_class_middlewares=True)
 app = Flask(__name__)
@@ -2334,6 +2335,10 @@ register_garden_handlers(
     bot, get_conn, get_user, add_exp, add_money, spend_money, check_and_give_achievements
     )
 
+register_buildings_handlers(
+    bot, get_conn, get_user, add_exp, spend_money
+)
+
 # ===== ЗАПУСК =====
 init_db()
 init_battle_tables()
@@ -2342,6 +2347,11 @@ bot.delete_webhook(drop_pending_updates=True)
 time.sleep(15)
 print("Бот запущен!")
 
+threading.Thread(
+    target=buildings_checker_loop,
+    args=(bot, get_conn, get_user),
+    daemon=True
+).start()
 threading.Thread(
     target=traps_checker_loop,
     args=(bot, get_conn),
