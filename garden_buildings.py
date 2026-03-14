@@ -493,7 +493,7 @@ def _building_markup(user_id, bld_key):
     btns = [
         InlineKeyboardButton("🔙 Назад",       callback_data="bld_main"),
         InlineKeyboardButton("➕ Приготовить",  callback_data=f"bld_cook_{bld_key}"),
-        InlineKeyboardButton("📦 Инвентарь",   callback_data="grd_inventory"),
+        InlineKeyboardButton("📦 Инвентарь",   callback_data="bld_inventory"),
     ]
     if has_done:
         btns.insert(2, InlineKeyboardButton("✅ Забрать", callback_data=f"bld_collect_{bld_key}"))
@@ -529,7 +529,7 @@ def _recipe_list_markup(bld_key):
     m.add(*btns)
     m.add(
         InlineKeyboardButton("🔙 Назад",     callback_data=f"bld_open_{bld_key}"),
-        InlineKeyboardButton("📦 Инвентарь", callback_data="grd_inventory"),
+        InlineKeyboardButton("📦 Инвентарь", callback_data="bld_inventory"),
     )
     return m
 
@@ -963,6 +963,48 @@ def register_buildings_handlers(bot, get_conn, get_user, add_exp, spend_money):
         except: pass
         bot.answer_callback_query(call.id)
 
+    @bot.callback_query_handler(func=lambda c: c.data == 'bld_inventory')
+    def cb_bld_inventory(call):
+        user_id = call.from_user.id
+        # Импортируем функции инвентаря из garden_handlers
+        from garden_handlers import _get_inventory, _get_seeds, _get_fertilizers
+        from garden_buildings import _get_goods_inventory, RECIPES, quality_str as bq_str
+        import garden as G
+
+        inv   = _get_inventory(user_id)
+        seeds = _get_seeds(user_id)
+        ferts = _get_fertilizers(user_id)
+        goods = _get_goods_inventory(user_id)
+
+        crop_lines = [f"  {e} {G.CROPS.get(e,{}).get('name',e)} {G.quality_str(q)} ×{c}"
+                      for e, q, c in inv]
+        seed_lines = [f"  {e} {G.CROPS.get(e,{}).get('name',e)} ×{c}"
+                      for e, c in seeds.items()]
+        fert_lines = [f"  {G.FERTILIZERS.get(fk,{}).get('emoji','')} "
+                      f"{G.FERTILIZERS.get(fk,{}).get('name',fk)} ×{c}"
+                      for fk, c in ferts.items()]
+        goods_lines = [f"  {RECIPES.get(rk,{}).get('emoji','')} "
+                       f"{RECIPES.get(rk,{}).get('name',rk)} {bq_str(q)} ×{c}"
+                       for rk, q, c in goods]
+
+        text  = "— – - 📦 ИНВЕНТАРЬ 📦 - – —\n\n"
+        text += "– Собранные культуры –\n" + ("\n".join(crop_lines) or "  пусто") + "\n\n"
+        text += "– Семена/Саженцы –\n"     + ("\n".join(seed_lines) or "  пусто") + "\n\n"
+        text += "– Удобрения –\n"          + ("\n".join(fert_lines) or "  пусто") + "\n\n"
+        text += "– Товары –\n"             + ("\n".join(goods_lines) or "  пусто") + "\n\n"
+        text += G.SEP2
+
+        m = InlineKeyboardMarkup()
+        m.add(InlineKeyboardButton("🔙 Назад", callback_data="bld_main"))
+        try:
+            bot.edit_message_text(
+                text,
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                reply_markup=m
+            )
+        except: pass
+        bot.answer_callback_query(call.id)
 
 # ============================================================
 # ФОНОВЫЙ ЧЕКЕР (готовка завершена)
