@@ -2349,6 +2349,51 @@ def cmd_fixslots(message):
     finally:
         conn.close()
 
+@bot.message_handler(commands=['resetme'])
+def cmd_resetme(message):
+    if message.from_user.username != ADMIN_USERNAME:
+        return
+    user_id = message.from_user.id
+    conn = get_conn()
+    c    = conn.cursor()
+    try:
+        # Основные характеристики
+        c.execute('''UPDATE users SET money=0, exp=0, seeds=0, bait=0,
+                     fish=0, tropical_fish=0, crab=0, lobster=0, squid=0,
+                     shark=0, dragonfish=0, treasure=0, eggs=0, rank_index=0,
+                     seeds_planted=0, fish_caught=0, fishing_count=0,
+                     casino_games=0, casino_winnings=0, vegs_harvested=0,
+                     luck=0, rod_level=1, line_level=1, hook_level=1, reel_level=1
+                     WHERE user_id=%s''', (user_id,))
+        # Каталог рыб
+        c.execute('DELETE FROM fish_catalog WHERE user_id=%s', (user_id,))
+        # Достижения
+        c.execute('DELETE FROM user_achievements WHERE user_id=%s', (user_id,))
+        # Ловушки
+        c.execute('''UPDATE traps SET status='empty', started_at=NULL,
+                     chat_id=NULL, message_id=NULL WHERE user_id=%s''', (user_id,))
+        # Огород — грядки
+        c.execute('''UPDATE garden_plots SET crop_emoji=NULL, planted_at=NULL,
+                     watered_at=NULL, fert_growth=0, fert_quality=0,
+                     fert_yield=0, fert_name=NULL WHERE user_id=%s''', (user_id,))
+        # Огород — семена, инвентарь, удобрения, лог
+        c.execute('DELETE FROM garden_seeds WHERE user_id=%s', (user_id,))
+        c.execute('DELETE FROM garden_inventory WHERE user_id=%s', (user_id,))
+        c.execute('DELETE FROM garden_fertilizers WHERE user_id=%s', (user_id,))
+        c.execute('DELETE FROM garden_harvest_log WHERE user_id=%s', (user_id,))
+        # Здания
+        c.execute('DELETE FROM farm_buildings WHERE user_id=%s', (user_id,))
+        c.execute('DELETE FROM cooking_slots WHERE user_id=%s', (user_id,))
+        c.execute('DELETE FROM goods_inventory WHERE user_id=%s', (user_id,))
+
+        conn.commit()
+        bot.send_message(message.chat.id, "✅ Прогресс полностью сброшен. Ты снова новичок!")
+    except Exception as e:
+        conn.rollback()
+        bot.send_message(message.chat.id, f"❌ Ошибка: {e}")
+    finally:
+        conn.close()
+
 # ===== РЫБАЛКА (новая) =====
 register_fishing_handlers(
     bot, get_conn, get_user, add_exp, add_money,
