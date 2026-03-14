@@ -33,6 +33,7 @@ def _init_garden_db():
         fert_growth  INTEGER DEFAULT 0,
         fert_quality INTEGER DEFAULT 0,
         fert_yield   INTEGER DEFAULT 0,
+        fert_name    TEXT    DEFAULT NULL,
         PRIMARY KEY (user_id, bed, slot)
     )''')
     c.execute('''CREATE TABLE IF NOT EXISTS garden_seeds (
@@ -61,6 +62,10 @@ def _init_garden_db():
         quality     INTEGER,
         harvested_at TEXT
     )''')
+    try:
+        c.execute("ALTER TABLE garden_plots ADD COLUMN IF NOT EXISTS fert_name TEXT DEFAULT NULL")
+        conn.commit()
+    except: conn.rollback()
     conn.commit()
     conn.close()
 
@@ -80,7 +85,7 @@ def _get_slots(user_id, bed_num):
     conn = _get_conn()
     c    = conn.cursor()
     c.execute(
-        'SELECT slot,crop_emoji,planted_at,watered_at,fert_growth,fert_quality,fert_yield '
+        'SELECT slot,crop_emoji,planted_at,watered_at,fert_growth,fert_quality,fert_yield,fert_name '
         'FROM garden_plots WHERE user_id=%s AND bed=%s ORDER BY slot',
         (user_id, bed_num)
     )
@@ -88,13 +93,14 @@ def _get_slots(user_id, bed_num):
     conn.close()
     return [{'slot': r[0], 'crop_emoji': r[1], 'planted_at': r[2],
              'watered_at': r[3], 'fert_growth': r[4],
-             'fert_quality': r[5], 'fert_yield': r[6]} for r in rows]
+             'fert_quality': r[5], 'fert_yield': r[6], 'fert_name': r[7]} for r in rows]
+
 
 def _get_slot(user_id, bed_num, slot_num):
     conn = _get_conn()
     c    = conn.cursor()
     c.execute(
-        'SELECT slot,crop_emoji,planted_at,watered_at,fert_growth,fert_quality,fert_yield '
+        'SELECT slot,crop_emoji,planted_at,watered_at,fert_growth,fert_quality,fert_yield,fert_name '
         'FROM garden_plots WHERE user_id=%s AND bed=%s AND slot=%s',
         (user_id, bed_num, slot_num)
     )
@@ -104,7 +110,7 @@ def _get_slot(user_id, bed_num, slot_num):
         return None
     return {'slot': r[0], 'crop_emoji': r[1], 'planted_at': r[2],
             'watered_at': r[3], 'fert_growth': r[4],
-            'fert_quality': r[5], 'fert_yield': r[6]}
+            'fert_quality': r[5], 'fert_yield': r[6], 'fert_name': r[7]}
 
 def _get_seeds(user_id):
     conn = _get_conn()
@@ -211,9 +217,12 @@ def _apply_fertilizer(user_id, bed_num, slot_num, fert_key):
     c.execute('''UPDATE garden_plots SET
                  fert_growth=fert_growth+%s,
                  fert_quality=fert_quality+%s,
-                 fert_yield=fert_yield+%s
+                 fert_yield=fert_yield+%s,
+                 fert_name=%s
                  WHERE user_id=%s AND bed=%s AND slot=%s''',
-              (fert['growth'], fert['quality'], fert['yield'], user_id, bed_num, slot_num))
+              (fert['growth'], fert['quality'], fert['yield'],
+               f"{fert['emoji']} {fert['name']}",
+               user_id, bed_num, slot_num))
     conn.commit()
     conn.close()
 
@@ -399,7 +408,7 @@ def _slot_info_text(user_id, bed_num, slot_num, slot_row):
         f"📈 Рост: {pct}%\n"
         f"⏳ До сбора: {G.format_time(left)}\n\n"
         f"💧 Влажность: {ws}\n"
-        f"🧪 Удобрение: {'✅' if slot_row.get('fert_growth') or slot_row.get('fert_quality') or slot_row.get('fert_yield') else '❌'}\n\n"
+        f"🧪 Удобрение: {slot_row['fert_name'] if slot_row.get('fert_name') else '❌'}\n\n"
         f"⏫ Бонусы роста: +{gb}%\n"
         f"⏫ Бонусы качества: +{qb}%\n\n"
         f"{G.SEP}"
