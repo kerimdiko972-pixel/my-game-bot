@@ -800,11 +800,14 @@ def register_buildings_handlers(bot, get_conn, get_user, add_exp, spend_money):
     @bot.callback_query_handler(func=lambda c: c.data.startswith('bld_ing_'))
     def cb_bld_ing(call):
         user_id = call.from_user.id
-        parts   = call.data[len('bld_ing_'):].split('_')
-        bld_key    = parts[0]
-        recipe_key = parts[1]
-        emoji      = parts[2]
-        quality    = int(parts[3])
+        # Формат: bld_ing_{bld_key}_{recipe_key}_{emoji}_{quality}
+        # bld_key всегда одно слово, quality всегда число, emoji — последний не-число сегмент
+        data  = call.data[len('bld_ing_'):]
+        parts = data.split('_')
+        bld_key = parts[0]
+        quality = int(parts[-1])
+        emoji   = parts[-2]
+        recipe_key = '_'.join(parts[1:-2])
 
         with _session_lock:
             session = _cooking_sessions.get(user_id)
