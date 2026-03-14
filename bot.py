@@ -553,7 +553,6 @@ def check_and_give_achievements(user_id, chat_id):
 def shop_keyboard():
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(
-        InlineKeyboardButton("🌱 Семена×5 — 💵80",         callback_data="buy_seeds"),
         InlineKeyboardButton("🪱 Наживка×5 — 💵60",        callback_data="buy_bait"),
         InlineKeyboardButton("🥚 Загадочное яйцо — 💵250", callback_data="buy_egg"),
     )
