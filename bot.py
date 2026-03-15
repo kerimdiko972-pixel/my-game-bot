@@ -14,6 +14,7 @@ from fishing_handlers import register_fishing_handlers, traps_checker_loop
 from garden_handlers import register_garden_handlers
 from garden_buildings import register_buildings_handlers, buildings_checker_loop
 from garden_quests import register_quest_handlers
+from garden_market import register_market_handlers
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, use_class_middlewares=True)
 app = Flask(__name__)
@@ -2457,6 +2458,8 @@ register_buildings_handlers(
 register_quest_handlers(
     bot, get_conn, get_user, add_exp, add_money, spend_money
 )
+
+register_market_handlers(bot, get_conn, get_user, add_money, spend_money)
 
 # ===== ЗАПУСК =====
 init_db()
