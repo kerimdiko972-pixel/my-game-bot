@@ -749,44 +749,42 @@ def register_market_handlers(bot, get_conn, get_user, add_money, spend_money):
         )
         
     def npc_buyer_loop(bot, get_conn_fn, get_user_fn, add_money_fn):
-    while True:
-        try:
-            conn = get_conn_fn()
-            c    = conn.cursor()
-            now  = datetime.now().isoformat()
-            c.execute('''SELECT id, seller_id, item_key, quality, count, price
+        while True:
+            try:
+                conn = get_conn_fn()
+                c    = conn.cursor()
+                now  = datetime.now().isoformat()
+                c.execute('''SELECT id, seller_id, item_key, quality, count, price
                          FROM market_listings WHERE auto_buy_at <= %s''', (now,))
-            rows = c.fetchall()
-            conn.close()
+                rows = c.fetchall()
+                conn.close()
 
-            for lid, seller_id, item_key, quality, count, price in rows:
-                # Атомарно удаляем
-                conn2 = get_conn_fn()
-                c2    = conn2.cursor()
-                c2.execute('DELETE FROM market_listings WHERE id=%s', (lid,))
-                deleted = c2.rowcount
-                conn2.commit()
-                conn2.close()
+                for lid, seller_id, item_key, quality, count, price in rows:
+                    conn2 = get_conn_fn()
+                    c2    = conn2.cursor()
+                    c2.execute('DELETE FROM market_listings WHERE id=%s', (lid,))
+                    deleted = c2.rowcount
+                    conn2.commit()
+                    conn2.close()
 
-                if deleted == 0:
-                    continue  # уже куплен реальным игроком
+                    if deleted == 0:
+                        continue
 
-                add_money_fn(seller_id, price)
-                npc_name  = random.choice(NPC_NAMES)
-                item_text = f"{_item_display(item_key)} {quality_str(quality)} ×{count}"
+                    add_money_fn(seller_id, price)
+                    npc_name  = random.choice(NPC_NAMES)
+                    item_text = f"{_item_display(item_key)} {quality_str(quality)} ×{count}"
 
-                # Уведомление продавцу
-                try:
-                    seller = get_user_fn(seller_id)
-                    if seller and len(seller) > 22 and seller[22]:
-                        bot.send_message(
+                    try:
+                        seller = get_user_fn(seller_id)
+                        if seller and len(seller) > 22 and seller[22]:
+                            bot.send_message(
                             seller[22],
                             f"💰 {npc_name} купил у тебя:\n\n"
                             f"{item_text}\n\n"
                             f"Получено: +💵{price:,}"
-                        )
-                except: pass
+                            )
+                    except: pass
 
-        except Exception as e:
-            print(f"NPC buyer error: {e}")
-        _time.sleep(15)
+            except Exception as e:
+                print(f"NPC buyer error: {e}")
+            _time.sleep(15)
