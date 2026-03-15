@@ -574,6 +574,7 @@ def register_buildings_handlers(bot, get_conn, get_user, add_exp, spend_money):
     @bot.callback_query_handler(func=lambda c: c.data == 'bld_main')
     def cb_bld_main(call):
         user_id = call.from_user.id
+        _ensure_building_rows(user_id)
         try:
             bot.edit_message_text(
                 _buildings_main_text(user_id),
@@ -603,6 +604,7 @@ def register_buildings_handlers(bot, get_conn, get_user, add_exp, spend_money):
     def cb_bld_open(call):
         user_id  = call.from_user.id
         bld_key  = call.data[len('bld_open_'):]
+        _ensure_building_rows(user_id)
         bd = BUILDINGS.get(bld_key)
         if not bd:
             bot.answer_callback_query(call.id, "❌ Ошибка!")
