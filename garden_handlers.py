@@ -279,7 +279,6 @@ def _harvest_slot(user_id, bed_num, slot_num, slot_row):
 # ============================================================
 
 def _garden_stats(user_id):
-    """Возвращает (planted, ready, today_count, best_quality)"""
     planted = 0
     ready   = 0
     now     = datetime.now()
@@ -298,10 +297,17 @@ def _garden_stats(user_id):
     c.execute('SELECT COUNT(*), MAX(quality) FROM garden_harvest_log WHERE user_id=%s AND harvested_at>=%s',
               (user_id, since))
     row = c.fetchone()
+
+    # Считаем готовые блюда в зданиях
+    c.execute('SELECT COUNT(*) FROM cooking_slots WHERE user_id=%s AND is_done=TRUE AND recipe_key IS NOT NULL',
+              (user_id,))
+    bld_row = c.fetchone()
     conn.close()
-    today_count = row[0] or 0
-    best_q      = row[1] or 0
-    return planted, ready, today_count, best_q
+
+    today_count  = row[0] or 0
+    best_q       = row[1] or 0
+    bld_ready    = bld_row[0] if bld_row else 0
+    return planted, ready, bld_ready, today_count, best_q
 
 # ============================================================
 # ТЕКСТЫ И РАЗМЕТКИ
@@ -313,7 +319,7 @@ def _main_menu_text(user_id):
     user    = _get_user(user_id)
     money   = user[2] if user else 0
     exp     = user[3] if user else 0
-    planted, ready, today_count, best_q = _garden_stats(user_id)
+    planted, ready, bld_ready, today_count, best_q = _garden_stats(user_id)
     best_str = G.quality_str(best_q) if best_q else '—'
     return (
         f"🌱 — – – – ОГОРОД – – – — 🌱\n\n"
