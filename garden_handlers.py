@@ -331,7 +331,7 @@ def _main_menu_text(user_id):
         f"{G.SEP}\n\n"
         f"🪏 Посажено: {planted}\n"
         f"🌾 Созрело: {ready}\n"
-        f"🍯 Готово в зданиях: 0\n\n"
+        f"🍯 Готово в зданиях: {bld_ready}\n\n"
         f"{G.SEP}\n\n"
         f"📈 Урожай сегодня: {today_count}\n"
         f"🌟 Лучшее качество: {best_str}"
