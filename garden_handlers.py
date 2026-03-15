@@ -322,7 +322,7 @@ def _main_menu_text(user_id):
     planted, ready, bld_ready, today_count, best_q = _garden_stats(user_id)
     best_str = G.quality_str(best_q) if best_q else '—'
     return (
-        f"🌱 — – – – ОГОРОД – – – — 🌱\n\n"
+        f"🚜 — – – – ФЕРМА – – – — 🚜\n\n"
         f"💰 Деньги: 💵 {money}\n"
         f"⭐ Опыт: {exp}\n\n"
         f"{G.SEP}\n\n"
@@ -481,7 +481,7 @@ def register_garden_handlers(bot, get_conn, get_user, add_exp, add_money, spend_
     _init_garden_db()
 
     # ── /garden ─────────────────────────────────────────────
-    @bot.message_handler(commands=['garden'])
+    @bot.message_handler(commands=['farm'])
     def cmd_garden(message):
         user_id = message.from_user.id
         _ensure_slots(user_id)
