@@ -853,10 +853,10 @@ def register_quest_handlers(bot, get_conn, get_user, add_exp, add_money, spend_m
     @bot.callback_query_handler(func=lambda c: c.data.startswith('quest_give_'))
     def cb_quest_give(call):
         user_id = call.from_user.id
-        parts   = call.data[len('quest_give_'):].split('_')
-        slot_num = int(parts[0])
-        item_key = parts[1]
-        quality  = int(parts[2])
+        data     = call.data[len('quest_give_'):]
+        slot_num = int(data.split('_')[0])
+        quality  = int(data.split('_')[-1])
+        item_key = '_'.join(data.split('_')[1:-1])
 
         with _session_lock:
             session = _quest_sessions.get(user_id)
