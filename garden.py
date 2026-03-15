@@ -91,7 +91,7 @@ WEATHER_TYPES = {
                       'effect_text': '🌱 Рост: +20%, ⭐ Качество: +10%, 💧 Все растения политы'},
 }
 
-WEATHER_WEIGHTS      = {'cloudy': 50, 'partly_cloudy': 30, 'sunny': 10, 'rain': 7, 'sunny_rain': 3}
+WEATHER_WEIGHTS      = {'cloudy': 20, 'partly_cloudy': 50, 'sunny': 20, 'rain': 7, 'sunny_rain': 3}
 WEATHER_CHANGE_HOURS = 2.5
 
 _current_weather_key = 'cloudy'
