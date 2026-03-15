@@ -14,7 +14,7 @@ from fishing_handlers import register_fishing_handlers, traps_checker_loop
 from garden_handlers import register_garden_handlers
 from garden_buildings import register_buildings_handlers, buildings_checker_loop
 from garden_quests import register_quest_handlers
-from garden_market import register_market_handlers
+from garden_market import register_market_handlers, npc_buyer_loop
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, use_class_middlewares=True)
 app = Flask(__name__)
@@ -2473,6 +2473,11 @@ threading.Thread(target=weather_checker, daemon=True).start()
 threading.Thread(
     target=buildings_checker_loop,
     args=(bot, get_conn, get_user),
+    daemon=True
+).start()
+threading.Thread(
+    target=npc_buyer_loop,
+    args=(bot, get_conn, get_user, add_money),
     daemon=True
 ).start()
 threading.Thread(
