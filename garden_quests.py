@@ -349,8 +349,13 @@ def _init_quest_db():
     c.execute('''CREATE TABLE IF NOT EXISTS quest_meta (
         user_id          BIGINT PRIMARY KEY,
         refreshes_left   INTEGER DEFAULT 3,
-        last_auto_reset  TEXT DEFAULT NULL
+        last_auto_reset  TEXT DEFAULT NULL,
+        refresh_times    TEXT DEFAULT NULL
     )''')
+    try:
+        c.execute("ALTER TABLE quest_meta ADD COLUMN IF NOT EXISTS refresh_times TEXT DEFAULT NULL")
+        conn.commit()
+    except: conn.rollback()
     conn.commit()
     conn.close()
 
@@ -365,13 +370,73 @@ def _ensure_quest_rows(user_id):
     conn.commit()
     conn.close()
 
+REFRESH_RESTORE_HOURS = 4
+MAX_REFRESHES = 3
+
 def _get_meta(user_id):
     conn = _get_conn()
     c    = conn.cursor()
-    c.execute('SELECT refreshes_left, last_auto_reset FROM quest_meta WHERE user_id=%s', (user_id,))
+    c.execute('SELECT refreshes_left, last_auto_reset, refresh_times FROM quest_meta WHERE user_id=%s', (user_id,))
     r = c.fetchone()
     conn.close()
-    return r  # (refreshes_left, last_auto_reset)
+    return r  # (refreshes_left, last_auto_reset, refresh_times)
+
+def _update_refreshes(user_id):
+    """Проверяет и восстанавливает обновления по таймеру. Возвращает актуальный (count, next_restore_sec)."""
+    meta = _get_meta(user_id)
+    if not meta:
+        return MAX_REFRESHES, None
+
+    count, last_auto, refresh_times_json = meta
+    now   = datetime.now()
+    times = json.loads(refresh_times_json) if refresh_times_json else []
+
+    # Восстанавливаем истёкшие
+    restored = 0
+    new_times = []
+    for t in times:
+        used_at = datetime.fromisoformat(t)
+        if (now - used_at).total_seconds() >= REFRESH_RESTORE_HOURS * 3600:
+            restored += 1
+        else:
+            new_times.append(t)
+
+    if restored > 0:
+        new_count = min(MAX_REFRESHES, count + restored)
+        conn = _get_conn()
+        c    = conn.cursor()
+        c.execute('UPDATE quest_meta SET refreshes_left=%s, refresh_times=%s WHERE user_id=%s',
+                  (new_count, json.dumps(new_times), user_id))
+        conn.commit()
+        conn.close()
+        count = new_count
+        times = new_times
+
+    # Когда восстановится следующее
+    next_sec = None
+    if times and count < MAX_REFRESHES:
+        oldest = datetime.fromisoformat(min(times))
+        left   = REFRESH_RESTORE_HOURS * 3600 - (now - oldest).total_seconds()
+        next_sec = max(0, left)
+
+    return count, next_sec
+
+def _use_refresh(user_id):
+    """Тратит одно обновление. Возвращает True если успешно."""
+    count, _ = _update_refreshes(user_id)
+    if count <= 0:
+        return False
+    now  = datetime.now()
+    meta = _get_meta(user_id)
+    times = json.loads(meta[2]) if meta[2] else []
+    times.append(now.isoformat())
+    conn = _get_conn()
+    c    = conn.cursor()
+    c.execute('UPDATE quest_meta SET refreshes_left=%s, refresh_times=%s WHERE user_id=%s',
+              (count - 1, json.dumps(times), user_id))
+    conn.commit()
+    conn.close()
+    return True
 
 def _get_quest_slots(user_id):
     conn = _get_conn()
@@ -535,8 +600,9 @@ def _quests_menu_text(user_id, slots, meta):
     money = user[2] if user else 0
     exp   = user[3] if user else 0
 
-    refreshes_left, last_auto = meta
-    # Таймер до авто-обновления
+    count, next_sec = _update_refreshes(user_id)
+
+    last_auto = meta[1]
     if last_auto:
         next_reset = datetime.fromisoformat(last_auto) + timedelta(hours=24)
         left_sec   = max(0, (next_reset - datetime.now()).total_seconds())
@@ -547,11 +613,18 @@ def _quests_menu_text(user_id, slots, meta):
     else:
         timer_str = "скоро"
 
+    if next_sec and count < MAX_REFRESHES:
+        rh = int(next_sec // 3600)
+        rm = int((next_sec % 3600) // 60)
+        restore_str = f" (⏳ +1 через {rh} ч. {rm} мин.)"
+    else:
+        restore_str = ""
+
     lines = [
         f"— – - 📋 ЗАДАНИЯ ГОРОДА 📋 - – —\n",
         f"Деньги: 💵 {money:,}",
         f"Опыта: ⭐ {exp:,}\n",
-        f"🔄 Обновить задания: {refreshes_left}/{MANUAL_REFRESHES}",
+        f"🔄 Обновить задания: {count}/{MAX_REFRESHES}{restore_str}",
         f"⏳ Новые задания через: {timer_str}\n",
     ]
     for s in slots:
@@ -569,11 +642,11 @@ def _quests_markup(slots, has_refreshes):
                 callback_data=f"quest_npc_{s['slot']}"
             ))
     nav = [
-        InlineKeyboardButton("🔙 Назад",      callback_data="grd_main"),
-        InlineKeyboardButton("📦 Инвентарь",  callback_data="grd_inventory"),
+        InlineKeyboardButton("🔙 Назад",     callback_data="grd_main"),
+        InlineKeyboardButton("📦 Инвентарь", callback_data="grd_inventory"),
     ]
     if has_refreshes:
-        nav.insert(1, InlineKeyboardButton("🔄 Обновить", callback_data="quest_refresh"))
+        nav.insert(1, InlineKeyboardButton("🔄 Обновить", callback_data="quest_pick_refresh"))
     m.add(*nav)
     return m
 
@@ -682,16 +755,50 @@ def register_quest_handlers(bot, get_conn, get_user, add_exp, add_money, spend_m
         _open_quests(call)
 
     # ── Обновить задания ─────────────────────────────────────
-    @bot.callback_query_handler(func=lambda c: c.data == 'quest_refresh')
-    def cb_quest_refresh(call):
+    @bot.callback_query_handler(func=lambda c: c.data == 'quest_pick_refresh')
+    def cb_quest_pick_refresh(call):
         user_id = call.from_user.id
-        meta    = _get_meta(user_id)
-        if not meta or meta[0] <= 0:
+        count, _ = _update_refreshes(user_id)
+        if count <= 0:
+            bot.answer_callback_query(call.id, "❌ Обновления закончились!", show_alert=True)
+            return
+        slots = _get_quest_slots(user_id)
+        m = InlineKeyboardMarkup(row_width=1)
+        for s in slots:
+            if s['quest'] and not s['done']:
+                q = s['quest']
+                m.add(InlineKeyboardButton(
+                    f"🔄 {q['npc_emoji']} {q['npc_name']}",
+                    callback_data=f"quest_refresh_one_{s['slot']}"
+                ))
+        m.add(InlineKeyboardButton("❌ Отмена", callback_data="grd_quests"))
+        try:
+            bot.edit_message_text(
+                f"Выбери задание которое хочешь обновить:\n(осталось обновлений: {count}/{MAX_REFRESHES})",
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                reply_markup=m
+            )
+        except: pass
+        bot.answer_callback_query(call.id)
+
+    @bot.callback_query_handler(func=lambda c: c.data.startswith('quest_refresh_one_'))
+    def cb_quest_refresh_one(call):
+        user_id  = call.from_user.id
+        slot_num = int(call.data[len('quest_refresh_one_'):])
+        if not _use_refresh(user_id):
             bot.answer_callback_query(call.id, "❌ Обновления закончились!")
             return
-        new_quests = _roll_quests()
-        _save_quests(user_id, new_quests)
-        _set_refreshes(user_id, meta[0] - 1)
+        slots     = _get_quest_slots(user_id)
+        new_quest = _roll_quests()[0]  # одно новое задание
+        new_list  = []
+        for s in slots:
+            if s['slot'] == slot_num:
+                new_list.append(new_quest)
+            else:
+                new_list.append(s['quest'])
+        _save_quests(user_id, new_list)
+        bot.answer_callback_query(call.id, "🔄 Задание обновлено!")
         _open_quests(call)
 
     # ── Нажать на НПС ────────────────────────────────────────
