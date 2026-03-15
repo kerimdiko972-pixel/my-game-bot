@@ -255,7 +255,7 @@ def _harvest_slot(user_id, bed_num, slot_num, slot_row):
 
     crop_e  = slot_row['crop_emoji']
     qual    = G.roll_quality(slot_row.get('fert_quality', 0))
-    count   = 1 + slot_row.get('fert_yield', 0)
+    count   = (3 if bed_num == 3 else 1) + slot_row.get('fert_yield', 0)
     
     _add_to_inventory(user_id, crop_e, qual, count)
     _log_harvest(user_id, crop_e, qual)
