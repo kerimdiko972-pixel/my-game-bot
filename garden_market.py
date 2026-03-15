@@ -7,7 +7,10 @@ garden_market.py — глобальный рынок фермы.
 import json
 import math
 import threading
-from datetime import datetime
+import random
+import threading
+import time as _time
+from datetime import datetime, timedelta
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ============================================================
@@ -18,6 +21,18 @@ MY_SLOTS         = 5
 MAX_STACK        = 10
 
 QUALITY_MULT = {1: 1.0, 2: 1.5, 3: 2.0, 4: 3.0, 5: 5.0}
+
+NPC_NAMES = [
+    "Sitjs_51","KrutoiMo17","Не сегодня😈","Настя🎀","StasNeStas","Eggqwi_",
+    "Max_Play77","Лёха_тут","Alina💫","Kaktusik23","ProstoDen","DarkFox_91",
+    "Vika🌸","Roman4ik","YarikGG","Misha_777","PolinaLove","SanyaTop",
+    "Артёмчик","Vlad_404","ZloyKot😼","Соня✨","Даня_Тут","CrazyNikita",
+    "OlyaSun","TimkaPlay","BananBoy","Glebik_12","Милана💖","RealStepan",
+    "DimaStorm","TurboEgor","Настроение_0","ShadowMark","AntonLive",
+    "ПростоКирилл","Sladkaya🍓","MaximusPlay","KatyaMoon","Владосик",
+    "FireDen","PandaMisha🐼","GreenTea_","SilentFox","SeregaGG","LeraSky",
+    "Prosto_Ilya","LuckyArtem","DarkNastya","Kot_Begemot"
+]
 
 def quality_str(q):
     return {1:'⭐',2:'⭐⭐',3:'⭐⭐⭐',4:'⭐⭐⭐⭐',5:'⭐⭐⭐⭐⭐'}.get(q, '⭐')
@@ -73,16 +88,21 @@ def _init_market_db():
     conn = _get_conn()
     c    = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS market_listings (
-        id          SERIAL PRIMARY KEY,
-        seller_id   BIGINT,
-        seller_name TEXT,
-        item_key    TEXT,
-        quality     INTEGER,
-        count       INTEGER,
-        price       INTEGER,
-        listed_at   TEXT,
-        slot_num    INTEGER
+        id           SERIAL PRIMARY KEY,
+        seller_id    BIGINT,
+        seller_name  TEXT,
+        item_key     TEXT,
+        quality      INTEGER,
+        count        INTEGER,
+        price        INTEGER,
+        listed_at    TEXT,
+        slot_num     INTEGER,
+        auto_buy_at  TEXT DEFAULT NULL
     )''')
+    try:
+        c.execute("ALTER TABLE market_listings ADD COLUMN IF NOT EXISTS auto_buy_at TEXT DEFAULT NULL")
+        conn.commit()
+    except: conn.rollback()
     conn.commit()
     conn.close()
 
@@ -123,12 +143,15 @@ def _free_slot(user_id):
     return None
 
 def _add_listing(user_id, seller_name, item_key, quality, count, price, slot_num):
+    delay    = random.randint(30, 3600)
+    buy_time = (datetime.now() + timedelta(seconds=delay)).isoformat()
     conn = _get_conn()
     c    = conn.cursor()
-    c.execute('''INSERT INTO market_listings (seller_id, seller_name, item_key, quality, count, price, listed_at, slot_num)
-                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s)''',
+    c.execute('''INSERT INTO market_listings
+                 (seller_id, seller_name, item_key, quality, count, price, listed_at, slot_num, auto_buy_at)
+                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
               (user_id, seller_name, item_key, quality, count, price,
-               datetime.now().isoformat(), slot_num))
+               datetime.now().isoformat(), slot_num, buy_time))
     conn.commit()
     conn.close()
 
@@ -503,37 +526,59 @@ def register_market_handlers(bot, get_conn, get_user, add_money, spend_money):
         user_id = call.from_user.id
         data    = call.data[len('mkt_pick_'):]
         parts   = data.split('_')
-        count   = int(parts[-1])
-        quality = int(parts[-2])
+        quality  = int(parts[-2])
+        max_cnt  = int(parts[-1])
         item_key = '_'.join(parts[:-2])
 
-        price = _calc_price(item_key, quality, count)
+        rec_price = _calc_price(item_key, quality, 1)
 
         with _session_lock:
             _market_sessions[user_id] = {
-                'item_key': item_key,
-                'quality':  quality,
-                'count':    count,
-                'price':    price,
+                'item_key':  item_key,
+                'quality':   quality,
+                'max_count': max_cnt,
+                'count':     1,
+                'custom_price': None,
+                'state':     'picking',
             }
 
-        m = InlineKeyboardMarkup(row_width=2)
-        m.add(
-            InlineKeyboardButton("✅ Подтвердить", callback_data="mkt_confirm"),
-            InlineKeyboardButton("❎ Отмена",      callback_data="mkt_add_type"),
-        )
+        _show_pick_menu(bot, call, user_id)
+        bot.answer_callback_query(call.id)
+
+
+    def _show_pick_menu(bot, call, user_id):
+        with _session_lock:
+            s = _market_sessions.get(user_id)
+        if not s: return
+
+        item_key  = s['item_key']
+        quality   = s['quality']
+        count     = s['count']
+        max_count = s['max_count']
+        rec_price = _calc_price(item_key, quality, count)
         item_text = f"{_item_display(item_key)} {quality_str(quality)} ×{count}"
+
+        text = (
+            f"🏪 Выбрано на продажу: {item_text}\n\n"
+            f"📝 Введите цену сообщением:\n"
+            f"(💰 Рекомендованная цена: 💵 {rec_price:,})\n"
+            f"Допустимо: от 💵{int(rec_price*0.6):,} до 💵{int(rec_price*1.4):,}"
+        )
+        m = InlineKeyboardMarkup(row_width=1)
+        if count < max_count:
+            m.add(InlineKeyboardButton(
+                f"➕ {_item_display(item_key)} {quality_str(quality)} ×{count + 1}",
+                callback_data=f"mkt_addone_{item_key}_{quality}_{max_count}"
+            ))
+        m.add(InlineKeyboardButton("❎ Отмена", callback_data="mkt_cancel_pick"))
         try:
             bot.edit_message_text(
-                f"📝 Выбрано на продажу: {item_text}\n\n"
-                f"💰 Цена: 💵 {price:,}\n\n"
-                f"Подтвердить?",
+                text,
                 chat_id=call.message.chat.id,
                 message_id=call.message.message_id,
                 reply_markup=m
             )
         except: pass
-        bot.answer_callback_query(call.id)
 
     # ── Подтвердить выставление ─────────────────────────────
     @bot.callback_query_handler(func=lambda c: c.data == 'mkt_confirm')
@@ -556,8 +601,9 @@ def register_market_handlers(bot, get_conn, get_user, add_money, spend_money):
 
         user        = _get_user(user_id)
         seller_name = user[1] if user else str(user_id)
+        price = session.get('custom_price') or session.get('price', 0)
         _add_listing(user_id, seller_name, session['item_key'],
-                     session['quality'], session['count'], session['price'], slot)
+                     session['quality'], session['count'], price, slot)
 
         bot.answer_callback_query(call.id, "✅ Товар выставлен на рынок!")
         # Возвращаем в мои товары
@@ -569,6 +615,39 @@ def register_market_handlers(bot, get_conn, get_user, add_money, spend_money):
                 reply_markup=_my_listings_markup(user_id)
             )
         except: pass
+
+    @bot.callback_query_handler(func=lambda c: c.data.startswith('mkt_addone_'))
+    def cb_mkt_addone(call):
+        user_id = call.from_user.id
+        data    = call.data[len('mkt_addone_'):]
+        parts   = data.split('_')
+        max_cnt  = int(parts[-1])
+        quality  = int(parts[-2])
+        item_key = '_'.join(parts[:-2])
+
+        with _session_lock:
+            s = _market_sessions.get(user_id)
+            if s and s['count'] < max_cnt:
+                s['count'] += 1
+
+        _show_pick_menu(bot, call, user_id)
+        bot.answer_callback_query(call.id)
+
+
+    @bot.callback_query_handler(func=lambda c: c.data == 'mkt_cancel_pick')
+    def cb_mkt_cancel_pick(call):
+        user_id = call.from_user.id
+        with _session_lock:
+            _market_sessions.pop(user_id, None)
+        try:
+            bot.edit_message_text(
+                _my_listings_text(user_id),
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                reply_markup=_my_listings_markup(user_id)
+            )
+        except: pass
+        bot.answer_callback_query(call.id)
 
     # ── Убрать товар — выбор ────────────────────────────────
     @bot.callback_query_handler(func=lambda c: c.data == 'mkt_remove_pick')
@@ -623,3 +702,91 @@ def register_market_handlers(bot, get_conn, get_user, add_money, spend_money):
                 reply_markup=_my_listings_markup(user_id)
             )
         except: pass
+            
+    @bot.message_handler(func=lambda message: (
+        message.from_user.id in _market_sessions and
+        _market_sessions[message.from_user.id].get('state') == 'picking'
+    ))
+    def handle_market_price_input(message):
+        user_id = message.from_user.id
+        with _session_lock:
+            s = _market_sessions.get(user_id)
+        if not s: return
+
+        try:
+            price = int(message.text.strip())
+        except ValueError:
+            bot.send_message(message.chat.id, "❌ Введи целое число!")
+            return
+
+        rec_price = _calc_price(s['item_key'], s['quality'], s['count'])
+        min_price = int(rec_price * 0.6)
+        max_price = int(rec_price * 1.4)
+
+        if price < min_price or price > max_price:
+            bot.send_message(
+                message.chat.id,
+                f"❌ Цена должна быть от 💵{min_price:,} до 💵{max_price:,}!"
+            )
+            return
+
+        with _session_lock:
+            s['custom_price'] = price
+            s['state']        = 'confirming'
+
+        item_text = f"{_item_display(s['item_key'])} {quality_str(s['quality'])} ×{s['count']}"
+        m = InlineKeyboardMarkup(row_width=1)
+        m.add(
+            InlineKeyboardButton("✅ Разместить", callback_data="mkt_confirm"),
+            InlineKeyboardButton("❎ Отмена",     callback_data="mkt_cancel_pick"),
+        )
+        bot.send_message(
+            message.chat.id,
+            f"🏪 Выбрано на продажу: {item_text}\n\n"
+            f"💰 Цена: 💵 {price:,}\n\n"
+            f"Подтвердить?",
+            reply_markup=m
+        )
+        
+    def npc_buyer_loop(bot, get_conn_fn, get_user_fn, add_money_fn):
+    while True:
+        try:
+            conn = get_conn_fn()
+            c    = conn.cursor()
+            now  = datetime.now().isoformat()
+            c.execute('''SELECT id, seller_id, item_key, quality, count, price
+                         FROM market_listings WHERE auto_buy_at <= %s''', (now,))
+            rows = c.fetchall()
+            conn.close()
+
+            for lid, seller_id, item_key, quality, count, price in rows:
+                # Атомарно удаляем
+                conn2 = get_conn_fn()
+                c2    = conn2.cursor()
+                c2.execute('DELETE FROM market_listings WHERE id=%s', (lid,))
+                deleted = c2.rowcount
+                conn2.commit()
+                conn2.close()
+
+                if deleted == 0:
+                    continue  # уже куплен реальным игроком
+
+                add_money_fn(seller_id, price)
+                npc_name  = random.choice(NPC_NAMES)
+                item_text = f"{_item_display(item_key)} {quality_str(quality)} ×{count}"
+
+                # Уведомление продавцу
+                try:
+                    seller = get_user_fn(seller_id)
+                    if seller and len(seller) > 22 and seller[22]:
+                        bot.send_message(
+                            seller[22],
+                            f"💰 {npc_name} купил у тебя:\n\n"
+                            f"{item_text}\n\n"
+                            f"Получено: +💵{price:,}"
+                        )
+                except: pass
+
+        except Exception as e:
+            print(f"NPC buyer error: {e}")
+        _time.sleep(15)
