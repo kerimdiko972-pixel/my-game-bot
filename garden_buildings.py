@@ -499,17 +499,23 @@ def _building_text(user_id, bld_key):
     return "\n".join(lines)
 
 def _building_markup(user_id, bld_key):
-    slots = _get_cooking_slots(user_id, bld_key)
-    has_done = any(s['is_done'] for s in slots)
-    m = InlineKeyboardMarkup(row_width=3)
-    btns = [
-        InlineKeyboardButton("🔙 Назад",       callback_data="bld_main"),
-        InlineKeyboardButton("➕ Приготовить",  callback_data=f"bld_cook_{bld_key}"),
-        InlineKeyboardButton("📦 Инвентарь",   callback_data="bld_inventory"),
-    ]
-    if has_done:
-        btns.insert(2, InlineKeyboardButton("✅ Забрать", callback_data=f"bld_collect_{bld_key}"))
-    m.add(*btns)
+    slots    = _get_cooking_slots(user_id, bld_key)
+    m        = InlineKeyboardMarkup(row_width=1)
+
+    # Кнопки для каждого готового блюда
+    for s in slots:
+        if s['is_done'] and s['recipe_key']:
+            rec = RECIPES.get(s['recipe_key'], {})
+            m.add(InlineKeyboardButton(
+                f"✅ {rec.get('emoji','')} {rec.get('name', s['recipe_key'])}",
+                callback_data=f"bld_collect_slot_{bld_key}_{s['slot_num']}"
+            ))
+
+    m.add(
+        InlineKeyboardButton("🔙 Назад",      callback_data="bld_main"),
+        InlineKeyboardButton("➕ Приготовить", callback_data=f"bld_cook_{bld_key}"),
+        InlineKeyboardButton("📦 Инвентарь",  callback_data="bld_inventory"),
+    )
     return m
 
 def _recipe_list_text(bld_key):
@@ -928,42 +934,36 @@ def register_buildings_handlers(bot, get_conn, get_user, add_exp, spend_money):
         except: pass
 
     # ── Забрать готовые ──────────────────────────────────────
-    @bot.callback_query_handler(func=lambda c: c.data.startswith('bld_collect_'))
-    def cb_bld_collect(call):
-        user_id = call.from_user.id
-        bld_key = call.data[len('bld_collect_'):]
-        slots   = _get_cooking_slots(user_id, bld_key)
-        results = []
+    @bot.callback_query_handler(func=lambda c: c.data.startswith('bld_collect_slot_'))
+    def cb_bld_collect_slot(call):
+        user_id  = call.from_user.id
+        parts    = call.data[len('bld_collect_slot_'):].split('_')
+        bld_key  = parts[0]
+        slot_num = int(parts[1])
 
-        for s in slots:
-            if s['is_done']:
-                result = _collect_slot(user_id, bld_key, s['slot_num'])
-                if result:
-                    rk, quality, finished_at = result
-                    rec = RECIPES[rk]
-
-                    # Цена с учётом выдержки
-                    price_mult = 1.0
-                    if rec.get('aging') and finished_at:
-                        price_mult = aging_mult(finished_at)
-
-                    # XP с учётом качества
-                    base_exp = rec['exp']
-                    xp_mult  = XP_QUALITY_BONUS.get(quality, 1.0)
-                    exp_gain = int(base_exp * xp_mult)
-
-                    _add_exp(user_id, exp_gain)
-                    results.append(
-                        f"+{rec['emoji']} {rec['name']} ×1 | {quality_str(quality)}"
-                        + (f" | 🕰️×{price_mult}" if price_mult > 1.0 else "")
-                        + f" | +{exp_gain}⭐"
-                    )
-
-        if results:
-            bot.send_message(call.message.chat.id, "\n".join(results))
-        else:
-            bot.answer_callback_query(call.id, "❌ Ничего нет!")
+        result = _collect_slot(user_id, bld_key, slot_num)
+        if not result:
+            bot.answer_callback_query(call.id, "❌ Блюдо ещё не готово!")
             return
+
+        rk, quality, finished_at = result
+        rec = RECIPES[rk]
+
+        price_mult = 1.0
+        if rec.get('aging') and finished_at:
+            price_mult = aging_mult(finished_at)
+
+        base_exp = rec['exp']
+        xp_mult  = XP_QUALITY_BONUS.get(quality, 1.0)
+        exp_gain = int(base_exp * xp_mult)
+        _add_exp(user_id, exp_gain)
+
+        bot.send_message(
+            call.message.chat.id,
+            f"+{rec['emoji']} {rec['name']} ×1 | {quality_str(quality)}"
+            + (f" | 🕰️×{price_mult}" if price_mult > 1.0 else "")
+            + f" | +{exp_gain}⭐"
+        )
 
         try:
             bot.edit_message_text(
