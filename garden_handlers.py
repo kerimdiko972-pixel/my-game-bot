@@ -339,13 +339,16 @@ def _main_menu_text(user_id):
 
 def _main_menu_markup():
     m = InlineKeyboardMarkup(row_width=2)
-    m.add(InlineKeyboardButton("🌱 Грядки", callback_data="grd_beds_1"))
+    m.add(
+        InlineKeyboardButton("🌱 Грядки",    callback_data="grd_beds_1"),
+        InlineKeyboardButton("🏪 Рынок",     callback_data="grd_market"),
+    )
     m.add(
         InlineKeyboardButton("🛍️ Магазин",  callback_data="grd_shop_1"),
         InlineKeyboardButton("🏭 Здания",    callback_data="grd_buildings"),
     )
     m.add(
-        InlineKeyboardButton("📋 Задания", callback_data="grd_quests"),
+        InlineKeyboardButton("📋 Задания",   callback_data="grd_quests"),
         InlineKeyboardButton("📦 Инвентарь", callback_data="grd_inventory"),
     )
     return m
