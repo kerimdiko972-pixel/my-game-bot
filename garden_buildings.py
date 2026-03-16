@@ -241,6 +241,10 @@ def _init_buildings_db():
         conn.commit()
     except: conn.rollback()
     try:
+        c.execute("ALTER TABLE goods_inventory ADD COLUMN IF NOT EXISTS finished_at TEXT DEFAULT NULL")
+        conn.commit()
+    except: conn.rollback()
+    try:
         c.execute('''ALTER TABLE cooking_slots
                      ADD CONSTRAINT cooking_slots_unique
                      UNIQUE (user_id, bld_key, slot_num)''')
@@ -341,9 +345,12 @@ def _collect_slot(user_id, bld_key, slot_num):
         return None
     recipe_key, quality, finished_at = r
 
-    c.execute('''INSERT INTO goods_inventory (user_id, recipe_key, quality, count) VALUES (%s,%s,%s,1)
-                 ON CONFLICT (user_id, recipe_key, quality) DO UPDATE SET count=goods_inventory.count+1''',
-              (user_id, recipe_key, quality))
+    c.execute('''INSERT INTO goods_inventory (user_id, recipe_key, quality, count, finished_at)
+                 VALUES (%s,%s,%s,1,%s)
+                 ON CONFLICT (user_id, recipe_key, quality) DO UPDATE SET
+                 count=goods_inventory.count+1,
+                 finished_at=EXCLUDED.finished_at''',
+              (user_id, recipe_key, quality, finished_at))
     c.execute('''UPDATE cooking_slots SET recipe_key=NULL, started_at=NULL, finished_at=NULL,
                  is_done=FALSE, ing_used=NULL, quality=0
                  WHERE user_id=%s AND bld_key=%s AND slot_num=%s''',
