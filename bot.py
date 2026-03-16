@@ -2440,50 +2440,51 @@ def cmd_resetme(message):
     finally:
         conn.close()
 
-@bot.message_handler(commands=['dball'])
-def cmd_dball(message):
-
-    ADMIN_USERNAME = "Sid_17jj"
-
+@bot.message_handler(commands=['alldb'])
+def cmd_alldb(message):
     if message.from_user.username != ADMIN_USERNAME:
         return
-
     conn = get_conn()
-    c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
-    tables = [
-        "users",
-        "garden",
-        "fishing",
-        "traps",
-        "pets",
-        "fish_catalog",
-        "user_achievements",
-        "garden_weather"
-    ]
-
-    text = "📊 *ВСЯ БАЗА ДАННЫХ*\n\n"
-
+    c    = conn.cursor()
+    
+    # Получаем все таблицы
+    c.execute("""
+        SELECT table_name FROM information_schema.tables 
+        WHERE table_schema='public' ORDER BY table_name
+    """)
+    tables = [r[0] for r in c.fetchall()]
+    
     for table in tables:
-        c.execute(f"SELECT * FROM {table}")
-        rows = c.fetchall()
-
-        text += f"\n*📂 {table}*\n"
-
-        if not rows:
-            text += "_пусто_\n"
-            continue
-
-        for row in rows:
-            for k, v in row.items():
-                text += f"{k}: {v}\n"
-            text += "------\n"
-
+        try:
+            c.execute(f'SELECT * FROM {table} LIMIT 50')
+            rows = c.fetchall()
+            if not rows:
+                bot.send_message(message.chat.id, f"📋 *{table}*: пусто", parse_mode='Markdown')
+                continue
+            
+            # Получаем названия колонок
+            c.execute(f"""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name='{table}' ORDER BY ordinal_position
+            """)
+            cols = [r[0] for r in c.fetchall()]
+            
+            text = f"📋 *{table}* ({len(rows)} строк)\n"
+            text += " | ".join(cols) + "\n"
+            text += "—" * 20 + "\n"
+            for row in rows:
+                text += " | ".join([str(v)[:20] if v is not None else 'NULL' for v in row]) + "\n"
+            
+            # Telegram ограничение 4096 символов
+            if len(text) > 4000:
+                text = text[:4000] + "\n...(обрезано)"
+            
+            bot.send_message(message.chat.id, text, parse_mode='Markdown')
+        except Exception as e:
+            bot.send_message(message.chat.id, f"❌ Ошибка таблицы {table}: {e}")
+    
     conn.close()
-
-    # Telegram ограничение 4096 символов
-    for i in range(0, len(text), 4000):
-        bot.send_message(message.chat.id, text[i:i+4000], parse_mode="Markdown")
+    bot.send_message(message.chat.id, "✅ Все таблицы выведены")
         
 # ===== РЫБАЛКА (новая) =====
 register_fishing_handlers(
