@@ -573,7 +573,8 @@ def register_market_handlers(bot, get_conn, get_user, add_money, spend_money):
         quality   = s['quality']
         count     = s['count']
         max_count = s['max_count']
-        rec_price = _calc_price(item_key, quality, count)
+        finished_at = s.get('finished_at')
+        rec_price   = _calc_price(item_key, quality, count, finished_at)
         item_text = f"{_item_display(item_key)} {quality_str(quality)} ×{count}"
 
         text = (
