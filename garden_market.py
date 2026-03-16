@@ -738,7 +738,7 @@ def register_market_handlers(bot, get_conn, get_user, add_money, spend_money):
             bot.send_message(message.chat.id, "❌ Введи целое число!")
             return
 
-        rec_price = _calc_price(s['item_key'], s['quality'], s['count'])
+        rec_price = _calc_price(s['item_key'], s['quality'], s['count'], s.get('finished_at'))
         min_price = int(rec_price * 0.6)
         max_price = int(rec_price * 1.4)
 
