@@ -2440,6 +2440,51 @@ def cmd_resetme(message):
     finally:
         conn.close()
 
+@bot.message_handler(commands=['dball'])
+def cmd_dball(message):
+
+    ADMIN_USERNAME = "Sid_17jj"
+
+    if message.from_user.username != ADMIN_USERNAME:
+        return
+
+    conn = get_conn()
+    c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    tables = [
+        "users",
+        "garden",
+        "fishing",
+        "traps",
+        "pets",
+        "fish_catalog",
+        "user_achievements",
+        "garden_weather"
+    ]
+
+    text = "📊 *ВСЯ БАЗА ДАННЫХ*\n\n"
+
+    for table in tables:
+        c.execute(f"SELECT * FROM {table}")
+        rows = c.fetchall()
+
+        text += f"\n*📂 {table}*\n"
+
+        if not rows:
+            text += "_пусто_\n"
+            continue
+
+        for row in rows:
+            for k, v in row.items():
+                text += f"{k}: {v}\n"
+            text += "------\n"
+
+    conn.close()
+
+    # Telegram ограничение 4096 символов
+    for i in range(0, len(text), 4000):
+        bot.send_message(message.chat.id, text[i:i+4000], parse_mode="Markdown")
+        
 # ===== РЫБАЛКА (новая) =====
 register_fishing_handlers(
     bot, get_conn, get_user, add_exp, add_money,
