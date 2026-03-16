@@ -73,8 +73,14 @@ def _item_display(item_key):
     except: pass
     return item_key
 
-def _calc_price(item_key, quality, count):
-    return int(_base_price(item_key) * count * QUALITY_MULT.get(quality, 1.0))
+def _calc_price(item_key, quality, count, finished_at=None):
+    base = _base_price(item_key) * count * QUALITY_MULT.get(quality, 1.0)
+    if item_key in ('wine', 'cider') and finished_at:
+        try:
+            from garden_buildings import aging_mult
+            base = base * aging_mult(finished_at)
+        except: pass
+    return int(base)
 
 # ============================================================
 # DB
@@ -199,6 +205,15 @@ def _add_to_inventory(user_id, item_key, quality, count):
               (user_id, item_key, quality, count, count))
     conn.commit()
     conn.close()
+
+def _get_finished_at(user_id, item_key, quality):
+    conn = _get_conn()
+    c    = conn.cursor()
+    c.execute('SELECT finished_at FROM goods_inventory WHERE user_id=%s AND recipe_key=%s AND quality=%s',
+              (user_id, item_key, quality))
+    r = c.fetchone()
+    conn.close()
+    return r[0] if r and r[0] else None
 
 def _spend_item(user_id, item_key, quality, count):
     conn = _get_conn()
@@ -532,14 +547,17 @@ def register_market_handlers(bot, get_conn, get_user, add_money, spend_money):
 
         rec_price = _calc_price(item_key, quality, 1)
 
+        fat = _get_finished_at(user_id, item_key, quality) if item_key in ('wine', 'cider') else None
+
         with _session_lock:
             _market_sessions[user_id] = {
-                'item_key':  item_key,
-                'quality':   quality,
-                'max_count': max_cnt,
-                'count':     1,
+                'item_key':    item_key,
+                'quality':     quality,
+                'max_count':   max_cnt,
+                'count':       1,
                 'custom_price': None,
-                'state':     'picking',
+                'state':       'picking',
+                'finished_at': fat,
             }
 
         _show_pick_menu(bot, call, user_id)
