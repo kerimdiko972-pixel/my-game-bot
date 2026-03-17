@@ -698,7 +698,7 @@ def register_fishing_handlers(bot, get_conn, get_user, add_exp, add_money,
 
         fish          = F.random_fish(rare_bonus=hook_stats['rare_bonus'])
         react_time    = fish[7] + rod_stats['time_bonus']
-        wait_time     = random.uniform(2, 17)
+        wait_time     = random.uniform(2, 10)
         max_tension   = line_stats['max_tension']
         start_tension = line_stats['start_tension']
         hook_chance   = hook_stats['hook_chance']
