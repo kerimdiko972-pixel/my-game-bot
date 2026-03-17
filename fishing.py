@@ -164,10 +164,10 @@ LINE_LEVELS = {
 }
 HOOK_LEVELS = {
     1: {'hook_chance': 0,  'rare_bonus': 0, 'price': 0},
-    2: {'hook_chance': 5,  'rare_bonus': 1, 'price': 6000},
-    3: {'hook_chance': 10, 'rare_bonus': 2, 'price': 30000},
-    4: {'hook_chance': 15, 'rare_bonus': 4, 'price': 150000},
-    5: {'hook_chance': 25, 'rare_bonus': 7, 'price': 500000},
+    2: {'hook_chance': 5,  'rare_bonus': 5, 'price': 6000},
+    3: {'hook_chance': 10, 'rare_bonus': 10, 'price': 30000},
+    4: {'hook_chance': 15, 'rare_bonus': 20, 'price': 150000},
+    5: {'hook_chance': 25, 'rare_bonus': 35, 'price': 500000},
 }
 REEL_LEVELS = {
     1: {'loosen': 2, 'price': 0},
