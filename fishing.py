@@ -376,5 +376,10 @@ def fight_text(fish_name, fish_emoji, cur_str, max_str, cur_ten, max_ten, action
         f"{note_line}"
         f"{fish_emoji} ???\n"
         f"Сила рыбы: {strength_text(cur_str, max_str)}\n"
-        f"Натяжение лески: {tension_text(cur_ten, max_ten)}"
+        f"Натяжение лески: {tension_text(cur_ten, max_ten)}\n\n"
+        f"• – – – – – – – – – – – – •\n"
+        f"🎣 Тянуть: -{dmg} к силе рыбы, +2 к натяжению лески\n"
+        f"🧘 Ослабить: +1 к силе рыбы, -{reel[loosen]} к натяжению лески\n"
+        f"✋ Удерживать: +1 к силе рыбы, -1 к натяжанию удочки\n"
+        f"• – – – – – – – – – – – – •\n"
     )
