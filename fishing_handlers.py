@@ -285,7 +285,10 @@ def _start_fight(bot, user_id, old_msg_id, chat_id, auto=False):
         bot.delete_message(chat_id, old_msg_id)
     except: pass
 
-    txt = F.fight_text(fish[2], fish[1], max_str, max_str, 2, max_ten)
+    txt = F.fight_text(fish[2], fish[1], max_str, max_str,
+                   session['current_tension'], max_ten,
+                   rod_damage=session['rod_damage'],
+                   reel_loosen=session['reel_loosen'])
     msg = bot.send_message(chat_id, txt, reply_markup=_fight_markup())
 
     with F.sessions_lock:
@@ -825,7 +828,8 @@ def register_fishing_handlers(bot, get_conn, get_user, add_exp, add_money,
         # Обновляем сообщение — действие игрока
         try:
             bot.edit_message_text(
-                F.fight_text(fish[2], fish[1], cur_str, max_str, cur_ten, max_ten, note),
+                F.fight_text(fish[2], fish[1], cur_str, max_str, cur_ten, max_ten, note,
+             rod_damage=rod_dmg, reel_loosen=reel_loosen)
                 chat_id=chat_id,
                 message_id=fight_msg
             )
@@ -890,7 +894,8 @@ def register_fishing_handlers(bot, get_conn, get_user, add_exp, add_money,
 
         try:
             bot.edit_message_text(
-                F.fight_text(fish[2], fish[1], cur_str, max_str, cur_ten, max_ten),
+                F.fight_text(fish[2], fish[1], cur_str, max_str, cur_ten, max_ten,
+             rod_damage=rod_dmg, reel_loosen=reel_loosen)
                 chat_id=chat_id,
                 message_id=fight_msg,
                 reply_markup=_fight_markup()
