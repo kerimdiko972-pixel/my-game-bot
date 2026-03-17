@@ -746,7 +746,7 @@ def cmd_casino(message):
     )
     bot.send_message(
         message.chat.id,
-        f"🎰💰 - К - А - З - И - Н - О - 💰🎰\n"
+        f"— – - 🎰💰 - К - А - З - И - Н - О - 💰🎰 - – —\n\n"
         f"💵 Денег: {money}",
         reply_markup=markup
     )
@@ -778,7 +778,7 @@ def cmd_bag(message):
 
     sep = "- - - - - - - - - -"
     text = f"В мешке у игрока *{username}*:\n{sep}\n"
-    text += f"💵 Денег: {money}\n🌱 Семян: {seeds}\n🪱 Наживок: {bait}\n"
+    text += f"💵 Денег: {money}\n🪱 Наживок: {bait}\n"
 
     vegs = []
     if potato:   vegs.append(f"🥔 × {potato}")
@@ -831,7 +831,6 @@ def cmd_shop(message):
         message.chat.id,
         f"🛒--- МАГАЗИН ---🛒\n{sep}\n"
         f"💵 Денег: {money}\n"
-        f"🌱 Семян: {seeds}\n"
         f"🪱 Наживок: {bait}\n"
         f"🥚 Яиц: {eggs}\n"
         f"{sep}",
@@ -894,7 +893,6 @@ def cmd_set(message):
         f"📝 {field} → {value}"
         )
 
-@bot.message_handler(commands=['zoo'])
 @bot.message_handler(commands=['zoo'])
 def cmd_zoo(message):
     args = message.text.split()
@@ -1216,7 +1214,7 @@ def callback_slot_spin(call):
     # Анимация: открываем столбец за столбцом
     import time
     for col in range(1, 6):
-        time.sleep(0.5)
+        time.sleep(0.25)
         try:
             bot.edit_message_text(
                 f"{header}\n\n{sm_render_grid(grid, col)}\n\n{sep}",
