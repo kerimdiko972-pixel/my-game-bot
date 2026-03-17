@@ -895,7 +895,7 @@ def register_fishing_handlers(bot, get_conn, get_user, add_exp, add_money,
         try:
             bot.edit_message_text(
                 F.fight_text(fish[2], fish[1], cur_str, max_str, cur_ten, max_ten,
-             rod_damage=rod_dmg, reel_loosen=reel_loosen)
+                             rod_damage=rod_dmg, reel_loosen=reel_loosen),
                 chat_id=chat_id,
                 message_id=fight_msg,
                 reply_markup=_fight_markup()
