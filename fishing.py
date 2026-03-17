@@ -369,8 +369,10 @@ def upgrade_preview_text(item_key, current_level):
     )
     return text, price
 
-def fight_text(fish_name, fish_emoji, cur_str, max_str, cur_ten, max_ten, action_note=""):
+def fight_text(fish_name, fish_emoji, cur_str, max_str, cur_ten, max_ten,
+               action_note="", rod_damage=0, reel_loosen=2):
     note_line = f"\n{action_note}\n" if action_note else "\n"
+    dmg = 1 + rod_damage
     return (
         f"🎣 Рыба на крючке!\n"
         f"{note_line}"
@@ -379,7 +381,7 @@ def fight_text(fish_name, fish_emoji, cur_str, max_str, cur_ten, max_ten, action
         f"Натяжение лески: {tension_text(cur_ten, max_ten)}\n\n"
         f"• – – – – – – – – – – – – •\n"
         f"🎣 Тянуть: -{dmg} к силе рыбы, +2 к натяжению лески\n"
-        f"🧘 Ослабить: +1 к силе рыбы, -{reel[loosen]} к натяжению лески\n"
-        f"✋ Удерживать: +1 к силе рыбы, -1 к натяжанию удочки\n"
+        f"🧘 Ослабить: +1 к силе рыбы, -{reel_loosen} к натяжению лески\n"
+        f"✋ Удерживать: -1 к силе рыбы, +1 к натяжению лески\n"
         f"• – – – – – – – – – – – – •\n"
     )
