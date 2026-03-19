@@ -64,6 +64,15 @@ RANK_ORDER = [
     (100000, "🔱Император🔱"),
 ]
 
+def fmt_num(n):
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        return str(n)
+    if abs(n) < 1000:
+        return str(n)
+    return f"{n:,}"
+
 ACHIEVEMENTS = {
     # Ключ: (название, колонка_в_users, [пороги], [награды])
     # награда = {'money': X, 'exp': X, 'eggs': X}
@@ -126,6 +135,21 @@ ACHIEVEMENTS = {
             (80000,  "Магнат казино",   {'money': 6000,  'exp': 3000, 'eggs': 2}),
             (250000, "Легенда казино",  {'money': 20000, 'exp': 8000, 'eggs': 5}),
         ]
+    },
+}
+
+ONE_TIME_ACHIEVEMENTS = {
+    'pets_unique': {
+        'title': '🐾 Сбор питомцев',
+        'name':  'Друзья на все лапы',
+        'threshold': 100,
+        'reward': {'money': 1_000_000, 'exp': 50_000},
+    },
+    'fish_catalog_unique': {
+        'title': '📒 Каталог рыб',
+        'name':  'Властелин вод',
+        'threshold': 100,
+        'reward': {'money': 850_000, 'exp': 35_000},
     },
 }
 
@@ -596,7 +620,43 @@ def check_and_give_achievements(user_id, chat_id):
                     f"Награда: {' | '.join(lines)}",
                     parse_mode='Markdown'
                 )
+    # Одноразовые достижения
+    for stat_key, ach in ONE_TIME_ACHIEVEMENTS.items():
+        c.execute('SELECT level FROM user_achievements WHERE user_id=%s AND stat_key=%s',
+                  (user_id, stat_key))
+        if c.fetchone():
+            continue  # уже выдано
 
+        current_val = 0
+        if stat_key == 'pets_unique':
+            c.execute('SELECT COUNT(DISTINCT pet) FROM pets WHERE user_id=%s', (user_id,))
+            row = c.fetchone()
+            current_val = row[0] if row else 0
+        elif stat_key == 'fish_catalog_unique':
+            c.execute('SELECT COUNT(DISTINCT fish_name) FROM fish_catalog WHERE user_id=%s', (user_id,))
+            row = c.fetchone()
+            current_val = row[0] if row else 0
+
+        if current_val >= ach['threshold']:
+            money = ach['reward'].get('money', 0)
+            exp   = ach['reward'].get('exp', 0)
+            c.execute('UPDATE users SET money=money+%s, exp=exp+%s WHERE user_id=%s',
+                      (money, exp, user_id))
+            c.execute('''INSERT INTO user_achievements (user_id, stat_key, level) VALUES (%s,%s,0)
+                         ON CONFLICT (user_id, stat_key) DO NOTHING''',
+                      (user_id, stat_key))
+            conn.commit()
+            lines = []
+            if money: lines.append(f"+💵 {fmt_num(money)}")
+            if exp:   lines.append(f"+⭐ {fmt_num(exp)} опыта")
+            bot.send_message(
+                chat_id,
+                f"🏅 *Достижение выполнено!*\n\n"
+                f"{ach['title']}\n"
+                f"*\"{ach['name']}\"*\n\n"
+                f"Награда: {' | '.join(lines)}",
+                parse_mode='Markdown'
+            )
     conn.close()
 
 def shop_keyboard():
@@ -2283,6 +2343,11 @@ def cmd_achievements(message):
 
         c.execute('SELECT stat_key, level FROM user_achievements WHERE user_id=%s', (user_id,))
         ach_levels = {r[0]: r[1] for r in c.fetchall()}
+        c.execute('SELECT COUNT(DISTINCT pet) FROM pets WHERE user_id=%s', (user_id,))
+        pets_count = (c.fetchone() or (0,))[0]
+
+        c.execute('SELECT COUNT(DISTINCT fish_name) FROM fish_catalog WHERE user_id=%s', (user_id,))
+        fish_count = (c.fetchone() or (0,))[0]
         conn.close()
 
         if not row:
@@ -2310,6 +2375,19 @@ def cmd_achievements(message):
                 text += f"🎯 «{name}»\n"
                 text += f"Прогресс: {current_val} / {threshold}\n\n"
 
+        one_time_progress = {
+            'pets_unique':         pets_count,
+            'fish_catalog_unique': fish_count,
+        }
+        for stat_key, ach in ONE_TIME_ACHIEVEMENTS.items():
+            current_val = one_time_progress[stat_key]
+            done        = stat_key in ach_levels
+            text += f"– – {ach['title']} – –\n"
+            if done:
+                text += f"✅ «{ach['name']}» выполнено!\n\n"
+            else:
+                text += f"🎯 «{ach['name']}»\n"
+                text += f"Прогресс: {current_val} / {ach['threshold']}\n\n"
         text += end
         bot.send_message(message.chat.id, text)
 
