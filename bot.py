@@ -2441,32 +2441,27 @@ def cmd_resetme(message):
         conn.close()
 
 @bot.message_handler(commands=['getstickers'])
-def cmd_getstickers(message):
+def cmd_get_stickers(message):
     if message.from_user.username != ADMIN_USERNAME:
         return
-    
-    pack_name = message.text.split()[-1]  # /getstickers название_пака
-    
+    parts = message.text.split()
+    if len(parts) < 2:
+        bot.send_message(message.chat.id, 'Укажи название пака: /getstickers название_пака')
+        return
+    pack_name = parts[1]
     try:
         pack = bot.get_sticker_set(pack_name)
-        lines = [f'📦 Пак: {pack.title}\nВсего стикеров: {len(pack.stickers)}\n']
-        
-        for i, sticker in enumerate(pack.stickers):
-            emoji = sticker.emoji or '?'
-            lines.append(f'{i+1}. {emoji}\n`{sticker.file_id}`\n')
-        
-        # Шлём по частям, если много стикеров
-        chunk = ''
-        for line in lines:
-            if len(chunk) + len(line) > 4000:
-                bot.send_message(message.chat.id, chunk, parse_mode='Markdown')
-                chunk = ''
-            chunk += line
-        if chunk:
-            bot.send_message(message.chat.id, chunk, parse_mode='Markdown')
-            
+        bot.send_message(message.chat.id, f'Пак: {pack.title}\nВсего: {len(pack.stickers)}')
+        for i, s in enumerate(pack.stickers, 1):
+            # Отправляем сам стикер + его file_id без parse_mode
+            bot.send_sticker(message.chat.id, s.file_id)
+            bot.send_message(
+                message.chat.id,
+                f'{i}. emoji={s.emoji}\nfile_id={s.file_id}'
+                # НЕТ parse_mode — чтобы _ и - не ломали парсер
+            )
     except Exception as e:
-        bot.send_message(message.chat.id, f'❌ Ошибка: {e}\nПроверь название пака (без @)')
+        bot.send_message(message.chat.id, f'Ошибка: {e}')
 
 @bot.message_handler(commands=['alldb'])
 def cmd_alldb(message):
