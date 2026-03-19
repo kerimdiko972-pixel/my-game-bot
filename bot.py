@@ -2440,6 +2440,34 @@ def cmd_resetme(message):
     finally:
         conn.close()
 
+@bot.message_handler(commands=['getstickers'])
+def cmd_getstickers(message):
+    if message.from_user.username != ADMIN_USERNAME:
+        return
+    
+    pack_name = message.text.split()[-1]  # /getstickers название_пака
+    
+    try:
+        pack = bot.get_sticker_set(pack_name)
+        lines = [f'📦 Пак: {pack.title}\nВсего стикеров: {len(pack.stickers)}\n']
+        
+        for i, sticker in enumerate(pack.stickers):
+            emoji = sticker.emoji or '?'
+            lines.append(f'{i+1}. {emoji}\n`{sticker.file_id}`\n')
+        
+        # Шлём по частям, если много стикеров
+        chunk = ''
+        for line in lines:
+            if len(chunk) + len(line) > 4000:
+                bot.send_message(message.chat.id, chunk, parse_mode='Markdown')
+                chunk = ''
+            chunk += line
+        if chunk:
+            bot.send_message(message.chat.id, chunk, parse_mode='Markdown')
+            
+    except Exception as e:
+        bot.send_message(message.chat.id, f'❌ Ошибка: {e}\nПроверь название пака (без @)')
+
 @bot.message_handler(commands=['alldb'])
 def cmd_alldb(message):
     if message.from_user.username != ADMIN_USERNAME:
