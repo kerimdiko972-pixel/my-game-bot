@@ -30,15 +30,16 @@ pending_arena = {}
 # ================== ФОРМАТИРОВАНИЕ ==================
 
 def fmt_fighter_list(fighters):
-    lines = ['--- ARENA ---\n', 'Твои бойцы:\n']
+    lines = ['— – - 🔵 ⚔️ А Р Е Н А ⚔️ 🔴 - – —\n', 'Твои бойцы:\n']
+    nums = ['1️⃣', '2️⃣', '3️⃣']
     for slot in (1, 2, 3):
         f = fighters[slot]
-        num = ['1', '2', '3'][slot - 1]
+        num = nums[slot - 1]
         if f:
-            em = CLASS_EMOJI.get(f['class'], '')
-            lines.append(f'{num}. {em} {f["name"]} | {f["class"]} Ур.{f["level"]}')
+            em = CLASS_EMOJI.get(f['class'], '👤')
+            lines.append(f'{num} {em} {f["name"]} | {f["class"]} Ур.{f["level"]}')
         else:
-            lines.append(f'{num}. [Пусто]')
+            lines.append(f'{num} [Пусто]')
     return '\n'.join(lines)
 
 
@@ -60,43 +61,50 @@ def fmt_fighter_card(fighter_row):
     art2   = fighter_row.get('artifact2') or 'Нет'
     weapon = fighter_row.get('weapon') or 'Нет'
     return (
-        f'-- АРЕНА --\n\n'
-        f'Рекорд: {fighter_row.get("record_floor", 0)} этаж\n\n'
-        f'--- {name} ---\n'
+        f'— – - 🔵 ⚔️ А Р Е Н А ⚔️ 🔴 - – —\n\n'
+        f'🎖️ Рекорд: {fighter_row.get("record_floor", 0)} этаж\n\n'
+        f'• - - - - - - - - - - - - - - - - - •\n\n'
+        f'— - - {name} - - —\n'
         f'Класс: {em} {cls}\n'
-        f'Уровень: {lvl} ({xp_next} XP до след.)\n'
-        f'SP: {sp}\n\n'
-        f'ХП: {max_hp}\n'
-        f'КД: {kd}\n'
-        f'Мана: {max_mana}\n\n'
-        f'СИЛ: {s}  ЛОВ: {d}  ТЕЛ: {co}\n'
-        f'ИНТ: {i}  ХАР: {ch}  УДЧ: {lk}\n'
-        f'СКР: {speed}\n\n'
-        f'--- Снаряжение ---\n\n'
-        f'Монет: {fighter_row.get("money", 0)}\n\n'
+        f'⭐ Уровень: {lvl} ({xp_next} XP до след.)\n'
+        f'✨ SP: {sp}\n\n'
+        f'❤️ ХП: {max_hp}\n'
+        f'🛡️ КД: {kd}\n'
+        f'🔷 Мана: {max_mana}\n\n'
+        f'💪 СИЛ: {s}\n'
+        f'🎯 ЛОВ: {d}\n'
+        f'❤️ ТЕЛ: {co}\n'
+        f'💡 ИНТ: {i}\n'
+        f'👄 ХАР: {ch}\n'
+        f'🍀 УДЧ: {lk}\n'
+        f'🏃 СКР: {speed}\n\n'
+        f'• - - - - - - - - - - - - - - - - - •\n\n'
+        f'— - - 🎒 Снаряжение 🎒 - - —\n\n'
+        f'💰 Монет: {fighter_row.get("money", 0)}\n\n'
         f'Оружие: {weapon}\n\n'
-        f'Артефакт 1: {art1}\n'
-        f'Артефакт 2: {art2}'
+        f'Артефакт №1: {art1}\n'
+        f'Артефакт №2: {art2}\n\n'
+        f'• - - - - - - - - - - - - - - - - - •'
     )
 
 
 def fighter_card_keyboard(fighter_row):
-    em  = CLASS_EMOJI.get(fighter_row['class'], '')
+    em  = CLASS_EMOJI.get(fighter_row['class'], '👤')
     fid = fighter_row['id']
     kb  = InlineKeyboardMarkup(row_width=2)
     kb.add(
-        InlineKeyboardButton('Приключение',       callback_data=f'arena_adv_{fid}'),
-        InlineKeyboardButton('Случайный бой',     callback_data=f'arena_rand_{fid}'),
+        InlineKeyboardButton('🏞️ Приключение',       callback_data=f'arena_adv_{fid}'),
+        InlineKeyboardButton('❔ Случайный бой ⚔️',   callback_data=f'arena_rand_{fid}'),
     )
     kb.add(
-        InlineKeyboardButton('Бой с игроком',     callback_data=f'arena_pvp_{fid}'),
-        InlineKeyboardButton(f'{em} Мой Боец',    callback_data=f'arena_card_{fid}'),
+        InlineKeyboardButton('👤 Бой с игроком ⚔️',  callback_data=f'arena_pvp_{fid}'),
+        InlineKeyboardButton(f'{em} Мой Боец',        callback_data=f'arena_card_{fid}'),
     )
     kb.add(
-        InlineKeyboardButton('Снаряжение',        callback_data=f'arena_equip_{fid}'),
-        InlineKeyboardButton('Лидеры',            callback_data=f'arena_leaders_{fid}'),
+        InlineKeyboardButton('🎒 Снаряжение',         callback_data=f'arena_equip_{fid}'),
+        InlineKeyboardButton('🏆 Лидеры',             callback_data=f'arena_leaders_{fid}'),
     )
-    kb.add(InlineKeyboardButton('Поменять персонажа', callback_data=f'arena_switch_{fid}'))
+    kb.add(InlineKeyboardButton('🔁 Поменять персонажа', callback_data=f'arena_switch_{fid}'))
     return kb
 
 
@@ -117,23 +125,29 @@ def fmt_battle(state):
     enemy_hint = f'\nСледующий ход врага: {next_act}' if phase == 'player_turn' else ''
     phase_label = 'Твой ход' if phase == 'player_turn' else '⏳ Обработка...'
     return (
-        f'--- БОЙ ---\n'
-        f'{p["name"]} vs {e["name"]}\n\n'
-        f'ХП {p["name"]}: {p["hp"]} / {p["max_hp"]}\n'
-        f'Мана: {p["mana"]} / {p["max_mana"]}\n'
-        f'Скорость: {p.get("speed", 5)}\n'
-        f'AP: {ap}\n'
-        f'Стойка: {stance}\n\n'
-        f'СИЛ: {p["str"]}  ЛОВ: {p["dex"]}  ТЕЛ: {p["con"]}\n'
-        f'ИНТ: {p["int"]}  ХАР: {p["cha"]}  УДЧ: {p["lck"]}\n\n'
+        f'— – - ⚔️ Б О Й ⚔️ - – —\n'
+        f'👤 {p["name"]} 🆚 {e["name"]}\n\n'
+        f'❤️ {p["name"]}: {p["hp"]} / {p["max_hp"]}\n'
+        f'🔷 Мана: {p["mana"]} / {p["max_mana"]}\n'
+        f'🏃 Скорость: {p.get("speed", 5)}\n'
+        f'⚡ AP: {ap}\n'
+        f'🧘 Стойка: {stance}\n\n'
+        f'💪 СИЛ: {p["str"]}  '
+        f'🎯 ЛОВ: {p["dex"]}  '
+        f'❤️ ТЕЛ: {p["con"]}\n'
+        f'💡 ИНТ: {p["int"]}  '
+        f'👄 ХАР: {p["cha"]}  '
+        f'🍀 УДЧ: {p["lck"]}\n\n'
         f'{e["name"]}: {e["hp"]} / {e["max_hp"]}\n'
-        f'Скорость: {e.get("speed", 5)}\n\n'
-        f'--- Эффекты ---\n\n'
-        f'{p["name"]}:\n{p_effs}\n\n'
+        f'🏃 Скорость: {e.get("speed", 5)}\n\n'
+        f'• – – – – – – – – – – – – – – – •\n\n'
+        f'🎯 Эффекты:\n\n'
+        f'👤 {p["name"]}:\n{p_effs}\n\n'
         f'{e["name"]}:\n{e_effs}\n\n'
-        f'--- Ход боя ---\n{log_text}'
+        f'• – – – – – – – – – – – – – – – •\n\n'
+        f'📜 Ход боя:\n{log_text}'
         f'{enemy_hint}\n\n'
-        f'[ {phase_label} ]'
+        f'— {phase_label} —'
     )
 
 
@@ -142,20 +156,20 @@ def battle_keyboard(state):
     cls = p.get('class', '')
     kb  = InlineKeyboardMarkup(row_width=2)
     kb.add(
-        InlineKeyboardButton('Атака',    callback_data='arena_atk'),
-        InlineKeyboardButton('Защита',   callback_data='arena_def'),
+        InlineKeyboardButton('⚔️ Атака',    callback_data='arena_atk'),
+        InlineKeyboardButton('🛡️ Защита',   callback_data='arena_def'),
     )
-    row = [InlineKeyboardButton('Навыки', callback_data='arena_skills')]
+    row = [InlineKeyboardButton('✨ Навыки', callback_data='arena_skills')]
     if cls in MAGIC_CLASSES:
-        row.append(InlineKeyboardButton('Заклинания', callback_data='arena_spells'))
+        row.append(InlineKeyboardButton('🔮 Заклинания', callback_data='arena_spells'))
     kb.add(*row)
     kb.add(
-        InlineKeyboardButton('Стойка',    callback_data='arena_stance'),
-        InlineKeyboardButton('Инвентарь', callback_data='arena_inv'),
+        InlineKeyboardButton('🧘 Стойка',    callback_data='arena_stance'),
+        InlineKeyboardButton('🎒 Инвентарь', callback_data='arena_inv'),
     )
     kb.add(
-        InlineKeyboardButton('Завершить ход', callback_data='arena_end_turn'),
-        InlineKeyboardButton('Сбежать',       callback_data='arena_run'),
+        InlineKeyboardButton('🛎️ Завершить ход', callback_data='arena_end_turn'),
+        InlineKeyboardButton('🏃 Сбежать',        callback_data='arena_run'),
     )
     return kb
 
@@ -168,8 +182,8 @@ def enemy_turn_keyboard(fighter_id):
 
 def finished_keyboard(fighter_id):
     kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(InlineKeyboardButton('Бой снова',    callback_data=f'arena_rand_{fighter_id}'))
-    kb.add(InlineKeyboardButton('Меню арены',   callback_data=f'arena_switch_{fighter_id}'))
+    kb.add(InlineKeyboardButton('🔁 Бой снова',    callback_data=f'arena_rand_{fighter_id}'))
+    kb.add(InlineKeyboardButton('🗺️ Меню арены',   callback_data=f'arena_switch_{fighter_id}'))
     return kb
 
 
@@ -183,55 +197,62 @@ def fmt_inventory(state):
         if not art_name or art_name == 'Нет' or art_name not in ARTIFACTS:
             return ''
         rem = cd.get(ARTIFACTS[art_name]['effect_key'], 0)
-        return f' (перезарядка {rem})' if rem > 0 else ''
+        return f' ⏳{rem}' if rem > 0 else ''
     return (
-        f'--- ИНВЕНТАРЬ ---\n\n'
-        f'{p["name"]}: {CLASS_EMOJI.get(p["class"], "")} {p["class"]} | Ур.{p["level"]}\n\n'
-        f'Золото: {p.get("money", 0)}\n\n'
-        f'--- Снаряжение ---\n\n'
+        f'— – - 🎒 И Н В Е Н Т А Р Ь - – —\n\n'
+        f'👤 {p["name"]}: {CLASS_EMOJI.get(p["class"], "👤")} {p["class"]} | Ур.{p["level"]}\n\n'
+        f'💰 Золото: {p.get("money", 0)}\n\n'
+        f'• – – – – – – – – – – – – – – – •\n'
+        f'⚔️ Снаряжение:\n\n'
         f'Оружие: {weapon}\n\n'
-        f'Артефакт 1: {art1}{cd_str(art1)}\n'
-        f'Артефакт 2: {art2}{cd_str(art2)}'
+        f'Артефакт №1: {art1}{cd_str(art1)}\n'
+        f'Артефакт №2: {art2}{cd_str(art2)}\n\n'
+        f'• – – – – – – – – – – – – – – – •'
     )
 
 
 def inventory_keyboard(state):
     p  = state['player']
     kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(InlineKeyboardButton(p.get('weapon') or 'Оружие: Нет', callback_data='arena_inv_weapon'))
+    kb.add(InlineKeyboardButton(p.get('weapon') or '⚔️ Оружие: Нет', callback_data='arena_inv_weapon'))
     for i, slot in enumerate(['artifact1', 'artifact2'], 1):
         art = p.get(slot)
-        label = art if art else f'Артефакт {i}: Нет'
+        label = art if art else f'Артефакт №{i}: Нет'
         cb = f'arena_use_art_{i}' if art else 'arena_inv_empty'
         kb.add(InlineKeyboardButton(label, callback_data=cb))
-    kb.add(InlineKeyboardButton('Назад', callback_data='arena_back_battle'))
+    kb.add(InlineKeyboardButton('🔙 Назад', callback_data='arena_back_battle'))
     return kb
 
 
 def fmt_stance_menu(current):
     names = {
-        'normal': 'Нейтральная', 'battle': 'Боевая',
-        'defense': 'Защитная', 'precise': 'Точная', 'dodge': 'Уклонения',
+        'normal': 'Нейтральная', 'battle': '⚔️ Боевая',
+        'defense': '🛡️ Защитная', 'precise': '🎯 Точная', 'dodge': '👣 Уклонения',
     }
     return (
-        f'--- СТОЙКИ ---\n\n'
+        f'— 🧘 С Т О Й К И —\n\n'
         f'Текущая: {names.get(current, "Нейтральная")}\n\n'
-        f'Боевая стойка\n+2 к урону\n+5% к шансу крита\n-1 к телосложению\n\n'
-        f'Защитная стойка\n-20% входящего урона\n+2 к телосложению\n-2 к урону\n\n'
-        f'Точная стойка\n+10% к попаданию дальнобойных\n-1 к скорости\n\n'
-        f'Стойка уклонения\n+15% к уклонению\n+1 к скорости\n-2 к урону'
+        f'• - - - - - - - •\n'
+        f'⚔️ Боевая стойка\n+2 к урону\n+5% к шансу крита\n-1 к телосложению\n'
+        f'• - - - - - - - •\n'
+        f'🛡️ Защитная стойка\n-20% входящего урона\n+2 к телосложению\n-2 к урону\n'
+        f'• - - - - - - - •\n'
+        f'🎯 Точная стойка\n+10% к попаданию дальнобойных\n-1 к скорости\n'
+        f'• - - - - - - - •\n'
+        f'👣 Стойка уклонения\n+15% к уклонению\n+1 к скорости\n-2 к урону\n'
+        f'• - - - - - - - •'
     )
 
 
 def stance_keyboard():
     kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
-        InlineKeyboardButton('Боевая',    callback_data='arena_st_battle'),
-        InlineKeyboardButton('Защитная',  callback_data='arena_st_defense'),
-        InlineKeyboardButton('Точная',    callback_data='arena_st_precise'),
-        InlineKeyboardButton('Уклонение', callback_data='arena_st_dodge'),
+        InlineKeyboardButton('⚔️ Боевая',    callback_data='arena_st_battle'),
+        InlineKeyboardButton('🛡️ Защитная',  callback_data='arena_st_defense'),
+        InlineKeyboardButton('🎯 Точная',    callback_data='arena_st_precise'),
+        InlineKeyboardButton('👣 Уклонение', callback_data='arena_st_dodge'),
     )
-    kb.add(InlineKeyboardButton('Назад', callback_data='arena_back_battle'))
+    kb.add(InlineKeyboardButton('🔙 Назад', callback_data='arena_back_battle'))
     return kb
 
 
@@ -267,6 +288,231 @@ def _execute_goblin_turn(state):
 
     if goblin['hp'] <= 0:
         state['phase']  = 'finished'
+        state['winner'] = 'player'
+        return msgs
+
+    action = state.get('goblin_next_action', pick_goblin_action())
+    msgs.append(f'Гоблин использует: {action["name"]}')
+    msgs.extend(execute_goblin_action(goblin, player, action))
+
+    if goblin.pop('_extra_turn', False) and player['hp'] > 0 and goblin['hp'] > 0:
+        extra_act = pick_goblin_action()
+        msgs.append(f'Дополнительный ход гоблина: {extra_act["name"]}')
+        msgs.extend(execute_goblin_action(goblin, player, extra_act))
+
+    msgs.extend(tick_effects_end_of_turn(goblin))
+    end_of_round_bleed_decay(goblin)
+    goblin['defending'] = False
+
+    if player['hp'] <= 0:
+        state['phase']  = 'finished'
+        state['winner'] = 'goblin'
+        msgs.append(f'{player["name"]} пал в бою...')
+        return msgs
+
+    state['goblin_next_action'] = pick_goblin_action()
+    state['round'] = state.get('round', 1) + 1
+
+    cds = player.get('artifact_cooldowns', {})
+    for k in list(cds):
+        cds[k] -= 1
+        if cds[k] <= 0:
+            del cds[k]
+
+    msgs.extend(tick_effects_end_of_turn(player))
+    end_of_round_bleed_decay(player)
+
+    start_msgs = _start_player_turn(state)
+    if start_msgs:
+        msgs.extend(start_msgs)
+
+    if player['hp'] <= 0:
+        state['phase']  = 'finished'
+        state['winner'] = 'goblin'
+        msgs.append(f'{player["name"]} умер от эффектов...')
+
+    return msgs
+
+
+def _check_death(state, get_conn, user_id):
+    player = state['player']
+    enemy  = state['enemy']
+    if enemy['hp'] <= 0 and state.get('winner') != 'goblin':
+        state['phase']  = 'finished'
+        state['winner'] = 'player'
+        reward = _end_battle_rewards(state, get_conn, user_id)
+        return True, reward
+    if player['hp'] <= 0 or state.get('winner') == 'goblin':
+        state['phase']  = 'finished'
+        state['winner'] = 'goblin'
+        return True, f'{player["name"]} пал в бою...'
+    return False, ''
+
+
+def _end_battle_rewards(state, get_conn, user_id):
+    player     = state['player']
+    fid        = player['id']
+    xp_gain    = GOBLIN_DATA['reward_xp']
+    money_gain = random.randint(*GOBLIN_DATA['reward_money_range'])
+    fighter    = get_fighter_by_id(get_conn, fid)
+    new_xp     = fighter['xp'] + xp_gain
+    new_money  = fighter['money'] + money_gain
+    old_level  = get_level_from_xp(fighter['xp'])
+    new_level  = get_level_from_xp(new_xp)
+    update_fighter(get_conn, fid, xp=new_xp, money=new_money, level=new_level)
+    lvl_msg = f'\nНовый уровень: {new_level}!' if new_level > old_level else ''
+    return f'Победа!\n\n+{xp_gain} XP\n+{money_gain} монет{lvl_msg}'
+
+
+def _do_player_action(call, get_conn):
+    user_id = call.from_user.id
+    state   = load_battle_state(get_conn, user_id)
+    if not state:
+        return None, '❌ Бой не найден'
+    if state.get('phase') != 'player_turn':
+        return None, '⏳ Сейчас не твой ход!'
+    if state['player'].get('ap', 0) <= 0:
+        return None, '❌ Нет АП! Нажми 🛎️ Завершить ход.'
+    return state, None
+
+
+# ================== РЕГИСТРАЦИЯ ==================
+
+def register_arena_handlers(bot, get_conn):
+
+    @bot.message_handler(commands=['arena'])
+    def cmd_arena(message):
+        user_id  = message.from_user.id
+        fighters = get_arena_fighters(get_conn, user_id)
+        text = fmt_fighter_list(fighters)
+        kb   = InlineKeyboardMarkup(row_width=1)
+        for slot in (1, 2, 3):
+            if fighters[slot]:
+                f  = fighters[slot]
+                em = CLASS_EMOJI.get(f['class'], '')
+                kb.add(InlineKeyboardButton(
+                    f'{em} {f["name"]} (Ур.{f["level"]})',
+                    callback_data=f'arena_view_{slot}'
+                ))
+            else:
+                kb.add(InlineKeyboardButton(
+                    f'➕ Создать (слот {slot})',
+                    callback_data=f'arena_create_{slot}'
+                ))
+        bot.send_message(message.chat.id, text, reply_markup=kb)
+
+    @bot.callback_query_handler(func=lambda c: c.data.startswith('arena_view_'))
+    def cb_arena_view(call):
+        user_id = call.from_user.id
+        slot    = int(call.data.split('_')[-1])
+        fighter = get_fighter_by_slot(get_conn, user_id, slot)
+        if not fighter:
+            bot.answer_callback_query(call.id, 'Боец не найден')
+            return
+        _safe_edit(bot, call.message.chat.id, call.message.message_id,
+                   fmt_fighter_card(fighter), fighter_card_keyboard(fighter))
+        bot.answer_callback_query(call.id)
+
+    @bot.callback_query_handler(func=lambda c: c.data.startswith('arena_create_'))
+    def cb_arena_create(call):
+        user_id = call.from_user.id
+        slot    = int(call.data.split('_')[-1])
+        pending_arena[user_id] = {
+            'action': 'waiting_name', 'slot': slot,
+            'chat_id': call.message.chat.id, 'msg_id': call.message.message_id,
+        }
+        try:
+            bot.edit_message_text(
+                f'Введи имя для своего бойца (макс. 25 символов):\nСлот: {slot}',
+                call.message.chat.id, call.message.message_id
+            )
+        except Exception:
+            pass
+        bot.answer_callback_query(call.id)
+
+    @bot.message_handler(func=lambda m: m.from_user.id in pending_arena
+                          and pending_arena[m.from_user.id].get('action') == 'waiting_name')
+    def handle_arena_name(message):
+        user_id = message.from_user.id
+        name    = message.text.strip()[:25]
+        if not name:
+            bot.send_message(message.chat.id, 'Имя не может быть пустым!')
+            return
+        state          = pending_arena[user_id]
+        state['name']  = name
+        state['action'] = 'choosing_class'
+        kb = InlineKeyboardMarkup(row_width=2)
+        for cls, em in CLASS_EMOJI.items():
+            kb.add(InlineKeyboardButton(f'{em} {cls}', callback_data=f'arena_cls_{cls}'))
+        kb.add(InlineKeyboardButton('📝🔙 Изменить имя', callback_data=f'arena_rename_{state["slot"]}'))
+        bot.send_message(message.chat.id, f'Имя бойца: {name}\n\nВыбери класс:', reply_markup=kb)
+
+    @bot.callback_query_handler(func=lambda c: c.data.startswith('arena_rename_'))
+    def cb_arena_rename(call):
+        user_id = call.from_user.id
+        slot    = int(call.data.split('_')[-1])
+        pending_arena[user_id] = {
+            'action': 'waiting_name', 'slot': slot,
+            'chat_id': call.message.chat.id, 'msg_id': call.message.message_id,
+        }
+        try:
+            bot.edit_message_text(
+                f'Введи имя для своего бойца (макс. 25 символов):\nСлот: {slot}',
+                call.message.chat.id, call.message.message_id
+            )
+        except Exception:
+            bot.send_message(call.message.chat.id, 'Введи имя:')
+        bot.answer_callback_query(call.id)
+
+    @bot.callback_query_handler(func=lambda c: c.data.startswith('arena_cls_')
+                                  and c.from_user.id in pending_arena
+                                  and pending_arena[c.from_user.id].get('action') == 'choosing_class')
+    def cb_arena_class(call):
+        user_id = call.from_user.id
+        cls     = call.data[len('arena_cls_'):]
+        if cls not in CLASS_EMOJI:
+            bot.answer_callback_query(call.id, 'Неизвестный класс')
+            return
+        state   = pending_arena.pop(user_id)
+        name    = state.get('name', 'Безымянный')
+        slot    = state.get('slot', 1)
+        try:
+            fighter = create_fighter(get_conn, user_id, slot, name, cls)
+        except Exception as e:
+            bot.answer_callback_query(call.id, f'Ошибка: {e}')
+            return
+        _safe_edit(bot, call.message.chat.id, call.message.message_id,
+                   fmt_fighter_card(fighter), fighter_card_keyboard(fighter))
+        bot.answer_callback_query(call.id, f'Боец {name} создан!')
+
+    @bot.callback_query_handler(func=lambda c: c.data.startswith('arena_card_'))
+    def cb_arena_card(call):
+        user_id = call.from_user.id
+        fid     = int(call.data.split('_')[-1])
+        fighter = get_fighter_by_id(get_conn, fid)
+        if not fighter or fighter.get('user_id') != user_id:
+            bot.answer_callback_query(call.id, 'Боец не найден')
+            return
+        _safe_edit(bot, call.message.chat.id, call.message.message_id,
+                   fmt_fighter_card(fighter), fighter_card_keyboard(fighter))
+        bot.answer_callback_query(call.id)
+
+    @bot.callback_query_handler(func=lambda c: c.data.startswith('arena_switch_'))
+    def cb_arena_switch(call):
+        user_id  = call.from_user.id
+        fighters = get_arena_fighters(get_conn, user_id)
+        text = fmt_fighter_list(fighters)
+        kb   = InlineKeyboardMarkup(row_width=1)
+        for slot in (1, 2, 3):
+            if fighters[slot]:
+                f  = fighters[slot]
+                em = CLASS_EMOJI.get(f['class'], '')
+                kb.add(InlineKeyboardButton(
+                    f'{em} {f["name"]} (Ур.{f["level"]})',
+                    callback_data=f'arena_view_{slot}'
+                ))
+            else:
+                kb.add(Inl']  = 'finished'
         state['winner'] = 'player'
         return msgs
 
