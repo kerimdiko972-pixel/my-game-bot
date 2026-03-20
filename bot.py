@@ -16,6 +16,8 @@ from garden_buildings import register_buildings_handlers, buildings_checker_loop
 from garden_quests import register_quest_handlers
 from garden_market import register_market_handlers, npc_buyer_loop
 from buckshot_handlers import register_roulette_handlers, init_roulette_tables
+from buckshot_pvp import (init_pvp_tables, register_pvp_handlers,
+                           start_turn_timer, start_challenge_timer)
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, use_class_middlewares=True)
 app = Flask(__name__)
@@ -2608,15 +2610,23 @@ register_quest_handlers(
 register_market_handlers(bot, get_conn, get_user, add_money, spend_money)
 
 register_roulette_handlers(bot, get_conn, get_user, add_money, spend_money)
+
+register_pvp_handlers(bot, get_conn, get_user, add_money, spend_money, add_exp, add_rwin)
+
 # ===== ЗАПУСК =====
 init_db()
 init_battle_tables()
 init_roulette_tables(get_conn)
+init_pvp_tables(get_conn)
 
 bot.delete_webhook(drop_pending_updates=True)
 time.sleep(15)
 print("Бот запущен!")
 
+threading.Thread(target=start_turn_timer,
+    args=(bot, get_conn, add_money, add_exp, add_rwin), daemon=True).start()
+threading.Thread(target=start_challenge_timer,
+    args=(bot, get_conn), daemon=True).start()
 threading.Thread(target=weather_checker, daemon=True).start()
 threading.Thread(
     target=buildings_checker_loop,
