@@ -622,8 +622,20 @@ def register_roulette_handlers(bot, get_conn, get_user, add_money, spend_money):
 
     @bot.callback_query_handler(func=lambda c: c.data == 'rlt_pvp')
     def cb_rlt_pvp(call):
-        bot.answer_callback_query(call.id, '🚧 Игра с пользователем пока недоступна!', show_alert=True)
-
+        text = (
+            '👤 ИГРА С ИГРОКОМ\n\n'
+            'Выбери способ дуэли:'
+        )
+        kb = InlineKeyboardMarkup(row_width=1)
+        kb.add(
+            InlineKeyboardButton('📨 Вызвать игрока',     callback_data='pvp_invite_list'),
+            InlineKeyboardButton('🔎 Найти по @username', callback_data='pvp_invite_username'),
+            InlineKeyboardButton('📜 Мои вызовы',         callback_data='pvp_my_challenges'),
+            InlineKeyboardButton('🔙 Назад',               callback_data='rlt_main'),
+        )
+        safe_edit(call.message.chat.id, call.message.message_id, text, kb)
+        bot.answer_callback_query(call.id)
+        
     # ─── Рекорды ───────────────────────────────────────────────
 
     @bot.callback_query_handler(func=lambda c: c.data == 'rlt_leaderboard')
