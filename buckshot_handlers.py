@@ -162,13 +162,13 @@ def hp_for_round(rnd):
 def calc_winnings(bet, mode, rnd):
     """Рассчитывает текущий выигрыш."""
     if mode == 'classic':
-        return round(bet * 1.5)
+        return round(bet * 5)
     else:
-        # x2.5 базово, каждые 10 раундов +250%
-        multiplier = 2.5
+        # x10 базово, каждые 10 раундов ×3
+        multiplier = 10
         extra = (rnd - 1) // 10
         for _ in range(extra):
-            multiplier *= 2.5
+            multiplier *= 3
         return round(bet * multiplier)
 
 
