@@ -15,7 +15,7 @@ from garden_handlers import register_garden_handlers
 from garden_buildings import register_buildings_handlers, buildings_checker_loop
 from garden_quests import register_quest_handlers
 from garden_market import register_market_handlers, npc_buyer_loop
-from buckshot_handlers import register_roulette_handlers, init_roulette_tables
+from buckshot_handlers import register_roulette_handlers, init_roulette_tables, add_rwin
 from buckshot_pvp import (init_pvp_tables, register_pvp_handlers,
                            start_turn_timer, start_challenge_timer)
 
