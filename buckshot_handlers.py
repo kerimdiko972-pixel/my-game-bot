@@ -1177,6 +1177,10 @@ def register_roulette_handlers(bot, get_conn, get_user, add_money, spend_money):
         if not state:
             bot.answer_callback_query(call.id)
             return
+    # Если игрок уже нажал "Играть дальше" — фаза сменилась, деньги не выдаём
+        if state.get('phase') not in ('finished', 'checkpoint'):
+            bot.answer_callback_query(call.id, '❌ Раунд уже начался!', show_alert=True)
+            return
         winnings = calc_winnings(state['bet'], state['mode'], state['round'])
         add_money(user_id, winnings)
         add_rwin(get_conn, user_id)
@@ -1192,12 +1196,14 @@ def register_roulette_handlers(bot, get_conn, get_user, add_money, spend_money):
         if not state:
             bot.answer_callback_query(call.id)
             return
+        # Сразу меняем фазу — теперь take_money не сработает
+        state['phase'] = 'battle'
+        save_rstate(get_conn, user_id, state)
+        bot.answer_callback_query(call.id)
         next_rnd = state['round'] + 1
         state = start_new_round(state, next_rnd)
         save_rstate(get_conn, user_id, state)
-        bot.answer_callback_query(call.id)
         send_round_start(bot, call.message.chat.id, user_id, state, get_conn)
-
 
 # ─── Вспомогательные функции вне класса ──────────────────────
 
