@@ -368,34 +368,40 @@ def init_db():
                 c.execute('INSERT INTO garden (user_id, slot) VALUES (%s, %s) ON CONFLICT DO NOTHING', (uid, slot))
     except: pass
         
+    # Добавляем колонки для достижений - ПРАВИЛЬНО с IF NOT EXISTS
     new_columns = [
-        "ALTER TABLE users ADD COLUMN vegs_harvested INTEGER DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN seeds_planted   INTEGER DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN fish_caught     INTEGER DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN fishing_count   INTEGER DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN casino_games    INTEGER DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN casino_winnings INTEGER DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS luck INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS vegs_harvested INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS seeds_planted   INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS fish_caught     INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS fishing_count   INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS casino_games    INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS casino_winnings INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS luck            INTEGER DEFAULT 0",
     ]
     for sql in new_columns:
         try:
             c.execute(sql)
             conn.commit()
-        except:
+            print(f"✅ Колонка добавлена: {sql}")
+        except Exception as e:
             conn.rollback()
+            print(f"⚠️ Колонка уже существует или ошибка: {e}")
 
+    # Убедимся что таблица user_achievements существует
     c.execute('''
     CREATE TABLE IF NOT EXISTS user_achievements (
         user_id   BIGINT,
         stat_key  TEXT,
-        level     INTEGER,  -- 0..4 (индекс в списке levels)
+        level     INTEGER DEFAULT 0,
         PRIMARY KEY (user_id, stat_key)
     )
-''')
+    ''')
+    conn.commit()
+    print("✅ Таблица user_achievements проверена")
 
     conn.commit()
     conn.close()
-    print("База данных инициализирована!")
+    print("✅ База данных инициализирована!")
 
 def get_user(user_id):
     conn = get_conn()
@@ -2402,12 +2408,13 @@ def cmd_achievements(message):
         conn = get_conn()
         c = conn.cursor()
 
-        cols = ', '.join(ACHIEVEMENTS.keys())
-        c.execute(f'SELECT {cols} FROM users WHERE user_id=%s', (user_id,))
+        # Получаем данные пользователя вручную (безопаснее)
+        c.execute('SELECT * FROM users WHERE user_id=%s', (user_id,))
         row = c.fetchone()
 
         c.execute('SELECT stat_key, level FROM user_achievements WHERE user_id=%s', (user_id,))
         ach_levels = {r[0]: r[1] for r in c.fetchall()}
+        
         c.execute('SELECT COUNT(DISTINCT pet) FROM pets WHERE user_id=%s', (user_id,))
         pets_count = (c.fetchone() or (0,))[0]
 
@@ -2419,14 +2426,26 @@ def cmd_achievements(message):
             bot.send_message(message.chat.id, "❌ Ошибка: данные не найдены!")
             return
 
-        stat_values = {key: (row[i] or 0) for i, key in enumerate(ACHIEVEMENTS.keys())}
+        # Безопасное получение значений по ключам (вместо индексов)
+        stat_values = {}
+        for stat_key in ACHIEVEMENTS.keys():
+            try:
+                # Получаем колонку из БД по названию
+                c_temp = get_conn().cursor()
+                c_temp.execute(f'SELECT {stat_key} FROM users WHERE user_id=%s', (user_id,))
+                val = c_temp.fetchone()
+                stat_values[stat_key] = (val[0] if val else None) or 0
+                c_temp.connection.close()
+            except:
+                # Если колонка не существует - используем 0
+                stat_values[stat_key] = 0
 
         sep = "— – - 🏅 ДОСТИЖЕНИЯ 🏅 - – —"
         end = "— — – - - - - - - - - - - - – — —"
         text = sep + "\n\n"
 
         for stat_key, ach in ACHIEVEMENTS.items():
-            current_val = stat_values[stat_key]
+            current_val = stat_values.get(stat_key, 0)
             current_level = ach_levels.get(stat_key, -1)
             next_level_idx = current_level + 1
             levels = ach['levels']
