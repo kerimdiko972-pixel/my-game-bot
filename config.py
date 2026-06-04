@@ -1,2 +1,7 @@
 import os
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+from dotenv import load_dotenv
+
+load_dotenv()
+
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+DATABASE_URL = os.getenv('DATABASE_URL')
