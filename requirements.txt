@@ -1,4 +1,4 @@
-python-telebot==20.7.0
+python-telebot==4.20.1
 psycopg2-binary==2.9.9
 python-dotenv==1.0.0
 flask==3.0.0
