@@ -268,11 +268,18 @@ def _harvest_slot(user_id, bed_num, slot_num, slot_row):
 
     conn2 = _get_conn()
     c2    = conn2.cursor()
-    c2.execute('UPDATE users SET vegs_harvested=vegs_harvested+1 WHERE user_id=%s', (user_id,))
-    conn2.commit()
-    conn2.close()
+    try:
+        c2.execute('UPDATE users SET vegs_harvested=vegs_harvested+1 WHERE user_id=%s', (user_id,))
+        conn2.commit()
+    except Exception as e:
+        # Если колонка не существует - просто пропускаем
+        conn2.rollback()
+        print(f"⚠️ Ошибка при обновлении vegs_harvested: {e}")
+    finally:
+        conn2.close()
 
     return crop_e, qual, count
+    
 
 # ============================================================
 # СТАТИСТИКА ДЛЯ ГЛАВНОГО МЕНЮ
