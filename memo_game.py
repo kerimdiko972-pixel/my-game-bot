@@ -76,7 +76,7 @@ SESSIONS: dict[int, dict] = {}
 def _generate_grid() -> list[list[str]]:
     """Создаёт 5×5 сетку с 10–15 случайными цветными клетками."""
     grid = [[EMPTY] * SIZE for _ in range(SIZE)]
-    colored_count = random.randint(10, 15)
+    colored_count = random.randint(8, 12)
     positions = random.sample(
         [(r, c) for r in range(SIZE) for c in range(SIZE)],
         colored_count,
