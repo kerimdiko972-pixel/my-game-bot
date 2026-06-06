@@ -351,6 +351,12 @@ def register_archie_handlers(bot: TeleBot) -> None:
 
         # Выбрать сообщение об ошибке по номеру попытки
         attempts_left = session["attempts"]
+        # Подсчёт совпадающих букв
+        target_letters = set(target)
+        answer_letters = set(answer)
+        matched = len(target_letters & answer_letters)
+        match_hint = f"\n📝 Совпало букв: *{matched}*" if matched > 0 else "\n📝 Совпавших букв нет."
+
         if attempts_left == 2:
             if not session["hint_applied"]:
                 _remove_some_fillers(session)
@@ -369,6 +375,7 @@ def register_archie_handlers(bot: TeleBot) -> None:
         bot.send_message(
             message.chat.id,
             f"{wrong_text}{extra}\n\n"
+            f"{match_hint}\n\n"
             f"{_hearts(attempts_left)}\n\n"
             f"{session['grid']}\n\n"
             f"✍ Попробуй ещё раз.",
