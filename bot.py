@@ -18,6 +18,8 @@ from garden_market import register_market_handlers, npc_buyer_loop
 from buckshot_handlers import register_roulette_handlers, init_roulette_tables, add_rwin
 from buckshot_pvp import (init_pvp_tables, register_pvp_handlers,
                            start_turn_timer, start_challenge_timer)
+from memo_game import register_memo_handlers
+register_memo_handlers(bot)
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, use_class_middlewares=True)
 app = Flask(__name__)
