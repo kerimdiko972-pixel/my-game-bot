@@ -358,6 +358,7 @@ def register_archie_handlers(bot: TeleBot) -> None:
             wrong_text = random.choice(_WRONG_MSGS_1)
             extra = f"\n\n💡 Подсказка: всего букв в слове — *{len(session['word'])}*"
         elif attempts_left == 1:
+            _remove_some_fillers(session)
             wrong_text = random.choice(_WRONG_MSGS_2)
             first_letter = session['word'][0]
             extra = f"\n\n💡 Подсказка: первая буква — *{first_letter}*"
