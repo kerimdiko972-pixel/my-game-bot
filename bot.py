@@ -18,6 +18,9 @@ from garden_market import register_market_handlers, npc_buyer_loop
 from buckshot_handlers import register_roulette_handlers, init_roulette_tables, add_rwin
 from buckshot_pvp import (init_pvp_tables, register_pvp_handlers,
                            start_turn_timer, start_challenge_timer)
+from archie import register_archie_handlers, reload_data
+reload_data()                      # загружает words.txt и facts.txt
+register_archie_handlers(bot)      # регистрирует .архи
 
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, use_class_middlewares=True)
 app = Flask(__name__)
