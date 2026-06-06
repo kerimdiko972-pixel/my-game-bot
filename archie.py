@@ -91,7 +91,7 @@ def _normalize(text: str) -> str:
     text = re.sub(r"[^А-ЯA-Z0-9]", "", text)
     return text
 
-def _build_grid(word: str, hide_ratio: float = 0.35) -> str:
+def _build_grid(word: str) -> str:
     """
     Строит визуальную сетку 4×4 (или 5×5 для длинных слов).
     Буквы слова перемешаны по клеткам; остальное — случайные буквы.
@@ -125,12 +125,6 @@ def _build_grid(word: str, hide_ratio: float = 0.35) -> str:
     for i in range(total):
         if not cells[i]:
             cells[i] = random.choice(_RU_LETTERS)
-
-    # Скрыть часть букв слова символом ⬜
-    hide_count = max(1, round(length * hide_ratio))
-    hide_positions = random.sample(positions, min(hide_count, len(positions)))
-    for pos in hide_positions:
-        cells[pos] = "⬜"
 
     # Разбить на строки
     rows = []
