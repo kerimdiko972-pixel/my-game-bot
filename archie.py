@@ -328,12 +328,11 @@ def register_archie_handlers(bot: TeleBot) -> None:
         attempts_left = session["attempts"]
         if attempts_left == 2:
             wrong_text = random.choice(_WRONG_MSGS_1)
-            extra = ""
+            extra = f"\n\n💡 Подсказка: всего букв в слове — *{len(session['word'])}*"
         elif attempts_left == 1:
             wrong_text = random.choice(_WRONG_MSGS_2)
-            # Подсказка после второй ошибки — категория слова (если задана)
-            hint = session.get("hint", "")
-            extra = f"\n\n📖 Подсказка: {hint}" if hint else ""
+            first_letter = session['word'][0]
+            extra = f"\n\n💡 Подсказка: первая буква — *{first_letter}*"
         else:
             wrong_text = random.choice(_WRONG_MSGS_LAST)
             extra = ""
