@@ -70,13 +70,18 @@ reload_data()
 # ---------------------------------------------------------------------------
 SESSIONS: dict[int, dict] = {}
 
-def _new_session(user_id: int, word: str, grid: str) -> dict:
+def _new_session(user_id: int, word: str, grid_data: tuple) -> dict:
+    grid_str, cells, size, filler_positions = grid_data
     return {
-        "word":     word,
-        "grid":     grid,
-        "attempts": 3,
-        "active":   True,
-        "used_answers": set(),
+        "word":             word,
+        "grid":             grid_str,
+        "cells":            cells,
+        "size":             size,
+        "filler_positions": filler_positions,
+        "hint_applied":     False,
+        "attempts":         3,
+        "active":           True,
+        "used_answers":     set(),
     }
 
 # ---------------------------------------------------------------------------
@@ -91,7 +96,8 @@ def _normalize(text: str) -> str:
     text = re.sub(r"[^А-ЯA-Z0-9]", "", text)
     return text
 
-def _build_grid(word: str) -> str:
+def _build_grid(word: str) -> tuple:
+    """Возвращает (grid_str, cells, size, filler_positions)"""
     """
     Строит визуальную сетку 4×4 (или 5×5 для длинных слов).
     Буквы слова перемешаны по клеткам; остальное — случайные буквы.
@@ -131,8 +137,27 @@ def _build_grid(word: str) -> str:
     for row_i in range(size):
         row_cells = cells[row_i * size: row_i * size + size]
         rows.append(" | ".join(row_cells))
-    return "\n".join(rows)
+    filler_positions = [i for i in range(total) if cells[i] not in list(w)]
+    return "\n".join(rows), cells, size, filler_positions
 
+def _remove_some_fillers(session: dict, ratio: float = 0.45) -> None:
+    """Заменяет часть ненужных букв на ⬜ и обновляет session['grid']."""
+    fillers = session["filler_positions"]
+    if not fillers:
+        return
+    remove_count = max(1, round(len(fillers) * ratio))
+    to_remove = random.sample(fillers, min(remove_count, len(fillers)))
+    for pos in to_remove:
+        session["cells"][pos] = "⬜"
+    # Убираем использованные позиции из filler_positions
+    session["filler_positions"] = [p for p in fillers if p not in to_remove]
+    # Перестраиваем строку сетки
+    size = session["size"]
+    rows = []
+    for row_i in range(size):
+        row = session["cells"][row_i * size: row_i * size + size]
+        rows.append(" | ".join(row))
+    session["grid"] = "\n".join(rows)
 # ---------------------------------------------------------------------------
 # Тексты интерфейса
 # ---------------------------------------------------------------------------
@@ -253,8 +278,8 @@ def register_archie_handlers(bot: TeleBot) -> None:
         bot.answer_callback_query(call.id)
 
         word = _pick_word()
-        grid = _build_grid(word)
-        SESSIONS[user_id] = _new_session(user_id, word, grid)
+        grid_data = _build_grid(word)
+        SESSIONS[user_id] = _new_session(user_id, word, grid_data)
 
         bot.send_message(
             call.message.chat.id,
@@ -327,6 +352,9 @@ def register_archie_handlers(bot: TeleBot) -> None:
         # Выбрать сообщение об ошибке по номеру попытки
         attempts_left = session["attempts"]
         if attempts_left == 2:
+            if not session["hint_applied"]:
+                _remove_some_fillers(session)
+                session["hint_applied"] = True
             wrong_text = random.choice(_WRONG_MSGS_1)
             extra = f"\n\n💡 Подсказка: всего букв в слове — *{len(session['word'])}*"
         elif attempts_left == 1:
