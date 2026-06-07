@@ -22,7 +22,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, C
 # Пути к файлам
 # ---------------------------------------------------------------------------
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
-WORDS_FILE  = os.path.join(BASE_DIR, "data", "wordle.txt")
+WORDLE_FILE = os.path.join(BASE_DIR, "data", "wordle.txt")
 FACTS_FILE  = os.path.join(BASE_DIR, "data", "facts.txt")
 
 FALLBACK_WORDS = ["книга", "архив", "тайна", "загадка", "символ", "запись", "страница"]
@@ -33,32 +33,26 @@ FALLBACK_FACTS = [
 ]
 
 # Хранилища (заполняются при reload_data)
-WORDS_LIST: list[str] = []   # список для случайного выбора
-WORDS_SET:  set[str]  = set()  # множество для быстрой проверки наличия
+WORDLE_LIST: list[str] = []   # список для случайного выбора
+VALID_SET:   set[str]  = set()  # множество для быстрой проверки наличия
 FACTS:      list[str] = []
 
 def reload_data() -> None:
-    """Перечитывает оба файла. Вызывается автоматически при импорте."""
-    global WORDS_LIST, WORDS_SET, FACTS
+    global WORDLE_LIST, VALID_SET, FACTS
 
-    # --- слова ---
-    if os.path.exists(WORDS_FILE):
-        with open(WORDS_FILE, "r", encoding="utf-8") as f:
-            raw = [l.strip().lower() for l in f if l.strip()]
-        # Фильтр: только кириллица, длина 5–8
-        valid = [w for w in raw if re.fullmatch(r"[а-яё]+", w) and 5 <= len(w) <= 8]
-        WORDS_LIST = valid if valid else FALLBACK_WORDS
-    else:
-        WORDS_LIST = FALLBACK_WORDS
-    WORDS_SET = set(WORDS_LIST)
+    raw_wordle = _load_file(WORDLE_FILE)
+    normalized = [_norm(w) for w in raw_wordle if _norm(w)]
+    
+    # Для загадывания — фильтруем по длине 5–8 букв
+    WORDLE_LIST = [w for w in normalized if 5 <= len(w) <= 8] or [_norm(w) for w in FALLBACK_WORDS]
+    
+    # Для проверки ответов — весь словарь
+    VALID_SET = set(normalized)
+    VALID_SET.update(_norm(w) for w in FALLBACK_WORDS)
 
-    # --- факты ---
-    if os.path.exists(FACTS_FILE):
-        with open(FACTS_FILE, "r", encoding="utf-8") as f:
-            lines = [l.strip() for l in f if l.strip()]
-        FACTS = lines if lines else FALLBACK_FACTS
-    else:
-        FACTS = FALLBACK_FACTS
+    # Факты
+    lines = _load_file(FACTS_FILE)
+    FACTS = lines if lines else FALLBACK_FACTS
 
 reload_data()
 
