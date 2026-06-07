@@ -74,11 +74,10 @@ def reload_data() -> None:
     # Загрузка фактов
     lines = _load_file(FACTS_FILE)
     FACTS = lines if lines else FALLBACK_FACTS
-)
-    
 
 # Первичная загрузка данных при импорте модуля
 reload_data()
+
 
 # ---------------------------------------------------------------------------
 # Константы игры
