@@ -22,13 +22,10 @@ from buckshot_pvp import (init_pvp_tables, register_pvp_handlers,
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False, use_class_middlewares=True)
 app = Flask(__name__)
 
-from archie import register_archie_handlers, reload_data
-reload_data()
-register_archie_handlers(bot)
-from memo_game import register_memo_handlers
-register_memo_handlers(bot)
-from cipher_game import register_cipher_handlers
+# Изменили импорт, чтобы вытащить сессии Шифра для проверки активности игры
+from cipher_game import register_cipher_handlers, SESSIONS as cipher_sessions
 register_cipher_handlers(bot)
+
 # --- Выход из игры ---
 @bot.message_handler(func=lambda m: m.text and m.text.strip().lower() == ".выйти")
 def cmd_exit_game(message):
@@ -55,9 +52,8 @@ def cmd_exit_game(message):
     
     # Выход из шифра
     try:
-        from cipher_game import SESSIONS as cipher_s
-        if user_id in cipher_s:
-            del cipher_s[user_id]
+        if user_id in cipher_sessions:
+            del cipher_sessions[user_id]
             exited = True
     except:
         pass
@@ -73,6 +69,24 @@ def cmd_exit_game(message):
             ".архи — угадай слово по буквам\n"
             ".мемо — запомни узор\n"
             ".шифр — расшифруй слово", parse_mode="Markdown")
+
+# --- Обработка обычных сообщений для прокачки ---
+@bot.message_handler(
+    func=lambda m: (
+        m.text 
+        and not m.text.strip().startswith(".")
+        # ИСПРАВЛЕНИЕ: Если у пользователя запущена игра Шифр, этот хэндлер опыта
+        # полностью игнорирует сообщение и передает его дальше — прямо в игру!
+        and not (m.from_user.id in cipher_sessions and cipher_sessions[m.from_user.id].get("active"))
+    )
+)
+def handle_regular_messages(message):
+    user_id = message.from_user.id
+    text = message.text.strip().lower()
+    
+    if len(text) <= 2:
+        return
+
 
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
