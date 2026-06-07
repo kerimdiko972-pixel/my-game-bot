@@ -55,29 +55,26 @@ def reload_data() -> None:
     global WORDLE_LIST, VALID_SET, FACTS
 
     raw_wordle = _load_file(WORDLE_FILE)
+    
+    # Очищаем слова
     normalized = [_normalize_word(w) for w in raw_wordle if _normalize_word(w)]
     
-    # Для загадывания — фильтруем по длине 5–8 букв
-    WORDLE_LIST = [w for w in normalized if 5 <= len(w) <= 8] or [_normalize_word(w) for w in FALLBACK_WORDS]
-    
-    # Для проверки ответов — весь словарь
-    VALID_SET = set(normalized)
-    VALID_SET.update(_normalize_word(w) for w in FALLBACK_WORDS)
+    # Жесткий фильтр: оставляем ТОЛЬКО слова нормальной длины (например, от 5 до 8 букв)
+    # Это отсечет 2-3 буквенные огрызки в начале и 20-значные слова в конце файла
+    filtered_words = [w for w in normalized if 5 <= len(w) <= 8]
 
-    # Факты
+    if not filtered_words:
+        # Если файл пустой или не подошел, берем запасные слова
+        filtered_words = [_normalize_word(w) for w in FALLBACK_WORDS]
+
+    # Теперь и для загадывания, и для проверки используются только валидные слова!
+    WORDLE_LIST = filtered_words
+    VALID_SET = set(filtered_words)
+
+    # Загрузка фактов
     lines = _load_file(FACTS_FILE)
     FACTS = lines if lines else FALLBACK_FACTS
-        # Добавьте этот дебаг-код в самый конец функции reload_data():
-    print("--- ЛОГ ЗАГРУЗКИ СЛОВАРЯ ---")
-    print(f"Всего строк считано из файла: {len(raw_wordle)}")
-    print(f"Слов в VALID_SET (доступных для проверки): {len(VALID_SET)}")
-    print(f"Слов в WORDLE_LIST (которые можно загадать): {len(WORDLE_LIST)}")
-    
-    # Выведем 5 случайных слов из базы, чтобы посмотреть на их формат
-    if VALID_SET:
-        sample = random.sample(list(VALID_SET), min(5, len(VALID_SET)))
-        print(f"Пример слов в базе бота: {sample}")
-    print("----------------------------")
+)
     
 
 # Первичная загрузка данных при импорте модуля
