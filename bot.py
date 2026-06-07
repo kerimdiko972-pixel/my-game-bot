@@ -29,6 +29,51 @@ from memo_game import register_memo_handlers
 register_memo_handlers(bot)
 from cipher_game import register_cipher_handlers
 register_cipher_handlers(bot)
+# --- Выход из игры ---
+@bot.message_handler(func=lambda m: m.text and m.text.strip().lower() == ".выйти")
+def cmd_exit_game(message):
+    user_id = message.from_user.id
+    exited = False
+    
+    # Выход из архи
+    try:
+        from archie import SESSIONS as archie_s
+        if user_id in archie_s:
+            del archie_s[user_id]
+            exited = True
+    except:
+        pass
+    
+    # Выход из мемо
+    try:
+        from memo_game import SESSIONS as memo_s
+        if user_id in memo_s:
+            del memo_s[user_id]
+            exited = True
+    except:
+        pass
+    
+    # Выход из шифра
+    try:
+        from cipher_game import SESSIONS as cipher_s
+        if user_id in cipher_s:
+            del cipher_s[user_id]
+            exited = True
+    except:
+        pass
+    
+    if exited:
+        bot.send_message(message.chat.id,
+            "📖 *Архив закрыл страницу.*\n\n"
+            "Игровая сессия завершена.", parse_mode="Markdown")
+    else:
+        bot.send_message(message.chat.id,
+            "📖 *Нет активной игры.*\n\n"
+            "Если хочешь начать, используй:\n"
+            ".архи — угадай слово по буквам\n"
+            ".мемо — запомни узор\n"
+            ".шифр — расшифруй слово", parse_mode="Markdown")
+
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
