@@ -14,6 +14,8 @@
 import os
 import random
 import re
+import threading  # Добавили для фонового удаления
+import time
 
 from telebot import TeleBot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
@@ -184,6 +186,18 @@ def _build_board(session: dict, footer: str = "✍ Отправь предпол
 # Регистрация обработчиков Telegram-бота
 # ---------------------------------------------------------------------------
 
+def _delete_message_delayed(bot: TeleBot, chat_id: int, message_id: int, delay: int = 3):
+    """Удаляет сообщение через указанное количество секунд в фоновом потоке."""
+    def delayed_delete():
+        time.sleep(delay)
+        try:
+            bot.delete_message(chat_id, message_id)
+        except Exception:
+            pass  # Если игрок сам уже удалил сообщение, бот не выдаст ошибку
+            
+    threading.Thread(target=delayed_delete, daemon=True).start()
+
+
 def register_cipher_handlers(bot: TeleBot) -> None:
     """Регистрация хэндлеров для игры в основном файле bot.py."""
 
@@ -257,26 +271,32 @@ def register_cipher_handlers(bot: TeleBot) -> None:
         length = len(target)
 
         # Проверка №1: наличие слова в общих базах данных
+                # Проверка №1: наличие слова в общих базах данных
         if guess not in VALID_SET:
-            bot.send_message(
+            msg = bot.send_message(
                 chat_id,
                 "📖 Архив не распознал это слово.\n\n"
                 "Такой записи нет в Великом Хранилище.\n"
                 "_Попытка не расходуется._",
                 parse_mode="Markdown",
             )
+            # Удаляем это предупреждение через 3 секунды
+            _delete_message_delayed(bot, chat_id, msg.message_id, delay=3)
             return
 
         # Проверка №2: соответствие длины слова оригиналу
         if len(guess) != length:
-            bot.send_message(
+            msg = bot.send_message(
                 chat_id,
                 f"📖 Размер шифра не совпадает.\n\n"
                 f"Требуется слово из *{length}* букв.\n"
                 f"_Попытка не расходуется._",
                 parse_mode="Markdown",
             )
+            # Удаляем это предупреждение через 3 секунды
+            _delete_message_delayed(bot, chat_id, msg.message_id, delay=3)
             return
+
 
         # Расчет совпадений букв
         emojis = _check_guess(guess, target)
