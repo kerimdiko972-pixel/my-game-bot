@@ -27,6 +27,8 @@ reload_data()
 register_archie_handlers(bot)
 from memo_game import register_memo_handlers
 register_memo_handlers(bot)
+from cipher_game import register_cipher_handlers
+register_cipher_handlers(bot)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
