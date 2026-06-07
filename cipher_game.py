@@ -67,6 +67,18 @@ def reload_data() -> None:
     # Факты
     lines = _load_file(FACTS_FILE)
     FACTS = lines if lines else FALLBACK_FACTS
+        # Добавьте этот дебаг-код в самый конец функции reload_data():
+    print("--- ЛОГ ЗАГРУЗКИ СЛОВАРЯ ---")
+    print(f"Всего строк считано из файла: {len(raw_wordle)}")
+    print(f"Слов в VALID_SET (доступных для проверки): {len(VALID_SET)}")
+    print(f"Слов в WORDLE_LIST (которые можно загадать): {len(WORDLE_LIST)}")
+    
+    # Выведем 5 случайных слов из базы, чтобы посмотреть на их формат
+    if VALID_SET:
+        sample = random.sample(list(VALID_SET), min(5, len(VALID_SET)))
+        print(f"Пример слов в базе бота: {sample}")
+    print("----------------------------")
+    
 
 # Первичная загрузка данных при импорте модуля
 reload_data()
